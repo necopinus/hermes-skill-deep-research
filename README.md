@@ -1,3 +1,6 @@
+> [!note]
+> Forked from [199-biotechnologies/claude-deep-research-skill](https://github.com/199-biotechnologies/claude-deep-research-skill) at commit [f2f2c0f](https://github.com/199-biotechnologies/claude-deep-research-skill/commit/f2f2c0fa4e7617ca84c86b63f4bb40f77a746933) on July 17th 2026.
+
 # Deep Research Skill for Claude Code
 
 Enterprise-grade research engine for Claude Code. Produces citation-backed reports with source credibility scoring, multi-provider search, and automated validation.
