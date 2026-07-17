@@ -2,23 +2,40 @@
 
 ## When to Use
 
-Trigger auto-continuation when report exceeds 18,000 words in single run.
+Trigger auto-continuation when the report exceeds ~18,000 words in a single run, or when
+context pressure makes it risky to keep generating in the current session.
 
 ---
 
-## Strategy Overview
+## Strategy Overview (Hermes-native)
 
-1. Generate sections 1-10 (stay under 18K words)
-2. Save continuation state file with context preservation
-3. Spawn continuation agent via Task tool
-4. Continuation agent: Reads state -> Generates next batch -> Spawns next if needed
-5. Chain continues recursively until complete
+Hermes doesn't have Claude's Task-tool recursive agents, but it has two mechanisms that
+cover the same ground:
+
+1. **`delegate_task`** — spawn a subagent with an isolated context to write the next
+   section batch. Bounded by `delegation.max_concurrent_children` (default 3) and NOT
+   durable: if the parent session dies, the subagent's work is lost. Use for quick
+   section batches within a live run.
+
+2. **Fresh session resume (preferred for long chains)** — write a continuation state
+   file, then resume in a NEW Hermes session (or a one-shot
+   `hermes chat -q "continue deep-research report, state: [path]"`). Fully durable,
+   no recursion depth issues, and each session gets a fresh context window. This is the
+   Hermes-idiomatic replacement for recursive agent spawning.
+
+**Default choice:** delegate_task for 1-2 continuation batches inside a live run; fresh
+session resume for anything longer.
 
 ---
 
 ## Continuation State File
 
-**Location:** `~/.claude/research_output/continuation_state_[report_id].json`
+**Location:** inside the report folder, `continuation_state.json`
+
+(e.g. `~/research/Topic_Research_20260717/continuation_state.json`)
+
+Keeping state next to the artifacts (not in a global state dir) means the folder is
+self-contained and the state is included if the folder is synced or archived.
 
 ```json
 {
@@ -38,7 +55,8 @@ Trigger auto-continuation when report exceeds 18,000 words in single run.
     "sources_path": "[folder]/sources.jsonl",
     "evidence_path": "[folder]/evidence.jsonl",
     "claims_path": "[folder]/claims.jsonl",
-    "run_manifest_path": "[folder]/run_manifest.json"
+    "run_manifest_path": "[folder]/run_manifest.json",
+    "artifacts_dir": "[folder]/artifacts"
   },
 
   "research_context": {
@@ -67,52 +85,76 @@ Trigger auto-continuation when report exceeds 18,000 words in single run.
 
 ---
 
-## Spawning Continuation Agent
-
-Use Task tool:
+## Option A: Continuation via delegate_task
 
 ```
-Task(
-  subagent_type="general-purpose",
-  description="Continue deep-research report generation",
-  prompt="""
-CONTINUATION TASK: Continue existing deep-research report.
+delegate_task(
+  goal="Continue deep-research report: generate the next section batch",
+  context="""
+CONTINUATION TASK: Continue an existing deep-research report.
 
 CRITICAL INSTRUCTIONS:
-1. Read continuation state: ~/.claude/research_output/continuation_state_[report_id].json
+1. Read continuation state: [folder]/continuation_state.json
 2. Read existing report: [file_path from state]
-3. Read LAST 3 completed sections for flow/style
+3. Read the LAST 3 completed sections for flow/style
 4. Load research context: themes, narrative arc, writing style
-5. Load source registry from state.artifacts.sources_path — use stable source_ids, assign display numbers via citation_manager.py
+5. Load the source registry from state.artifacts.sources_path — use stable
+   source_ids; assign display numbers via citation_manager.py
 6. Maintain quality metrics (avg words, citation density, prose ratio)
 
 YOUR TASK:
-Generate next batch (stay under 18,000 words):
+Generate the next batch (stay under ~6,000 words total):
 [List next_sections from state]
 
-Use Write/Edit to append to: [file_path]
+Append each section to [file_path] using the obsidian-research MCP write tool
+in append mode: mcp__obsidian_research__write_note(path=[vault-relative path],
+mode="append", content=...)
 
 QUALITY GATES:
-- Words per section: Within +/-20% of avg_words_per_finding
-- Citation density: Match +/-0.5 per 1K words
-- Prose ratio: Maintain >=80%
-- Theme alignment: Section ties to key_themes
+- Words per section: within +/-20% of avg_words_per_finding
+- Citation density: match +/-0.5 per 1K words
+- Prose ratio: maintain >=80%
+- Theme alignment: each section ties to key_themes
 
-After generating:
-- If more sections remain: Update state, spawn next agent
-- If final sections: Generate bibliography, verify report, cleanup state
+When done, update continuation_state.json (via terminal or file tools — it is
+NOT a markdown note, so MCP note tools do not apply) and report:
+- sections written
+- updated word count
+- whether another continuation is needed
 """
 )
 ```
 
+The parent then verifies the appended sections (spot-check word counts and citation
+numbers) before deciding whether to continue or finalize.
+
 ---
 
-## Continuation Agent Quality Protocol
+## Option B: Continuation via fresh session
+
+1. Current session: write/update `continuation_state.json`, then tell the user:
+   ```
+   Report paused at N sections (X words). To continue, run:
+   hermes chat -q "Continue the deep-research report at [folder]. State file:
+   [folder]/continuation_state.json. Follow reference/continuation.md."
+   ```
+   (Or start a new TUI session and say the same thing — the skill auto-loads on the
+   phrase "continue deep research".)
+
+2. New session (with this skill loaded): read the state file, follow the same
+   context-loading and per-section protocol as Option A, and repeat until done.
+
+This works identically from cron: schedule the continuation as a one-shot cronjob if
+the report should finish unattended overnight.
+
+---
+
+## Continuation Quality Protocol
 
 ### Context Loading (CRITICAL)
 
-1. Read continuation_state.json -> Load ALL context
-2. Read existing report file -> Review last 3 sections
+1. Read continuation_state.json -> load ALL context
+2. Read existing report file -> review last 3 sections
 3. Extract patterns:
    - Sentence structure complexity
    - Technical terminology used
@@ -136,32 +178,34 @@ After generating:
    - Prose ratio >=80%
    - Theme connection verified
    - Style consistent
-3. If ANY fails: Regenerate
-4. If passes: Write to file, update state
+3. If ANY fails: regenerate
+4. If passes: append to file (via obsidian-research MCP, `mode="append"`), update state
 
 ### Handoff Decision
 
-Calculate: Current words + remaining sections x avg_words_per_section
-- If total < 18K: Generate all + finish
-- If total > 18K: Generate partial, update state, spawn next agent
+Calculate: current words + remaining sections x avg_words_per_section
+- If total < ~18K: generate all + finish
+- If total > ~18K: generate partial, update state, continue via Option A or B
 
-### Final Agent Responsibilities
+### Final Continuation Responsibilities
 
 - Generate final content sections
-- Generate COMPLETE bibliography from state.citations.bibliography_entries
-- Read entire assembled report
-- Run validation: `python scripts/validate_report.py --report [path]`
+- Generate COMPLETE bibliography (also written to `bibliography.md`)
+- Generate the grimoire-ready `artifacts/` entries for any sources not yet extracted
+- Read the entire assembled report
+- Run validation: `python scripts/validate_report.py --report [path]` and
+  `python scripts/verify_citations.py --report [path]`
 - Delete continuation_state.json (cleanup)
-- Report complete to user
+- Deliver per the delivery contract in SKILL.md (in-chat summary + MEDIA: path)
 
 ---
 
 ## User Communication
 
-After spawning continuation:
+After each continuation batch:
 ```
-Report Generation: Part 1 Complete (N sections, X words)
-Auto-continuing via spawned agent...
+Report Generation: Part N Complete (M sections, X words)
+Continuing in a fresh session / subagent...
    Next batch: [section list]
    Progress: [X%] complete
 ```

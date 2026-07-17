@@ -3,7 +3,7 @@
 Deep Research Engine — STATE SCAFFOLD (not a runtime orchestrator)
 
 This file provides phase instruction templates and research state persistence.
-It does NOT drive Claude Code — Claude is the orchestrator; this file provides
+It does NOT drive Hermes — the agent is the orchestrator; this file provides
 data structures and CLI utilities for state management.
 
 For the actual research workflow, see reference/methodology.md.
@@ -131,7 +131,7 @@ class ResearchEngine:
     def __init__(self, mode: ResearchMode = ResearchMode.STANDARD):
         self.mode = mode
         self.state: Optional[ResearchState] = None
-        self.output_dir = Path.home() / ".claude" / "research_output"
+        self.output_dir = Path.home() / "research"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def initialize_research(self, query: str) -> ResearchState:
@@ -216,18 +216,20 @@ Use Graph-of-Thoughts: branch into 3-4 potential research paths, evaluate, then 
 Your task: Systematically collect information from multiple sources
 
 ## Execute:
-1. Use WebSearch with iterative query refinement (minimum 10 searches)
-2. Use WebFetch to deep-dive into 5-10 most promising sources
-3. Extract key passages with metadata
-4. Track information gaps
-5. Follow 2-3 promising tangents
-6. Ensure source diversity (different domains, perspectives)
+1. Search ~/grimoire first via the obsidian-grimoire MCP (mcp__obsidian_grimoire__search_notes)
+2. Search the web via the Kagi MCP (mcp__kagi__kagi_search_fetch) with iterative query refinement (minimum 5 searches)
+3. Fill gaps via the Exa MCP (mcp__exa__web_search_exa) with semantic queries
+4. Extract full content from 5-10 most promising sources (kagi_extract / web_fetch_exa)
+5. Extract key passages with metadata
+6. Track information gaps
+7. Follow 2-3 promising tangents
+8. Ensure source diversity (different domains, perspectives)
 
 ## Tools to Use:
-- WebSearch: For current information and broad coverage
-- WebFetch: For detailed extraction from specific URLs
-- Grep/Read: For local documentation if relevant
-- Task: Spawn 2-3 parallel retrieval agents for efficiency
+- obsidian-grimoire MCP: local wiki, always first
+- Kagi MCP: primary web search and page extraction
+- Exa MCP: semantic search and gap-filling
+- delegate_task: spawn 2-3 parallel retrieval subagents for efficiency
 
 ## Output:
 Store all sources with metadata. Each source should include:
@@ -454,8 +456,8 @@ Save report to file with timestamp.
         instructions = self.get_phase_instructions(phase)
         print(instructions)
 
-        # In real usage, Claude will execute these instructions
-        # This returns a structured result that Claude should populate
+        # In real usage, the agent executes these instructions
+        # This returns a structured result for the agent to populate
         result = {
             'phase': phase.value,
             'status': 'instructions_displayed',
@@ -527,7 +529,7 @@ Save report to file with timestamp.
 def main():
     """CLI entry point"""
     parser = argparse.ArgumentParser(
-        description="Deep Research Engine for Claude Code",
+        description="Deep Research Engine for Hermes",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -577,7 +579,7 @@ Examples:
     report_path = engine.run_pipeline(args.query)
 
     print(f"\nResearch complete! Report path: {report_path}")
-    print(f"\nNow Claude should execute each phase using the displayed instructions.")
+    print(f"\nNow the agent executes each phase using the displayed instructions.")
 
 
 if __name__ == '__main__':

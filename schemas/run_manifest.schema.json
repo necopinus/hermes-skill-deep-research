@@ -53,16 +53,24 @@
     "provider_config": {
       "type": "object",
       "properties": {
+        "local_wiki": {
+          "type": "string",
+          "description": "Local wiki MCP server searched first (e.g. obsidian-grimoire)"
+        },
         "primary": {
           "type": "string",
-          "description": "Primary search provider (e.g. WebSearch)"
+          "description": "Primary web search provider (e.g. kagi)"
+        },
+        "semantic": {
+          "type": ["string", "null"],
+          "description": "Semantic search provider (e.g. exa)"
         },
         "scholarly": {
           "type": ["string", "null"],
-          "description": "Scholarly API provider if configured (e.g. openalex, semantic_scholar)"
+          "description": "Scholarly API provider if configured (e.g. openalex, semantic_scholar, arxiv)"
         }
       },
-      "default": { "primary": "search-cli", "scholarly": null }
+      "default": { "local_wiki": "obsidian-grimoire", "primary": "kagi", "semantic": "exa", "scholarly": null }
     },
     "report_dir": {
       "type": "string",

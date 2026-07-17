@@ -22,9 +22,9 @@ Extract 3-4 key quantitative findings for dashboard display at top.
 
 ### Step 3: Convert MD to HTML
 
-Use Python script:
+Use Python script (run from the skill directory):
 ```bash
-cd ~/.claude/skills/deep-research
+cd ~/.hermes/skills/research/deep-research
 python scripts/md_to_html.py [markdown_report_path]
 ```
 
@@ -77,10 +77,10 @@ python scripts/verify_html.py --html [html_path] --md [md_path]
 - Pass: Proceed to open
 - Fail: Fix errors and re-run
 
-### Step 7: Open in Browser
-```bash
-open [html_path]
-```
+### Step 7: Deliver
+
+Do NOT open the HTML in a browser. Report the file path to the user and, in gateway
+sessions, attach it with a `MEDIA:` line (see the Delivery Contract in SKILL.md).
 
 ---
 
@@ -96,8 +96,9 @@ open [html_path]
    - Use `display: table` not Flexbox/Grid
    - Font sizes in pt (10pt body, 8pt citations)
 3. Generate: `weasyprint [html_path] [pdf_path]`
-4. Open: `open [pdf_path]`
+4. Deliver: report the path / attach via `MEDIA:` — never auto-open
 
-**Option B: generating-pdf Skill**
+**Option B: Dedicated PDF skill**
 
-Use Task tool with general-purpose agent, invoke generating-pdf skill.
+Delegate to a subagent (`delegate_task`) with a PDF-generation skill loaded, if one is
+installed.

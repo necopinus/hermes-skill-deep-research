@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document contains the detailed methodology for conducting deep research. The 8 phases represent a comprehensive approach to gathering, verifying, and synthesizing information from multiple sources.
+This document contains the detailed methodology for conducting deep research. The 8 phases
+represent a comprehensive approach to gathering, verifying, and synthesizing information
+from multiple sources.
 
 ---
 
@@ -17,7 +19,8 @@ This document contains the detailed methodology for conducting deep research. Th
 4. Establish success criteria
 5. List key assumptions to validate
 
-**Ultrathink Application:** Use extended reasoning to explore multiple framings of the question before committing to scope.
+**Reasoning:** Take the time to explore multiple framings of the question before
+committing to scope. Cheap at this phase, expensive later.
 
 **Output:** Structured scope document with research boundaries
 
@@ -35,7 +38,8 @@ This document contains the detailed methodology for conducting deep research. Th
 5. Estimate time/effort per phase
 6. Define quality gates
 
-**Graph-of-Thoughts:** Branch into multiple potential research paths, then converge on optimal strategy.
+**Graph-of-Thoughts:** Branch into multiple potential research paths, then converge on
+optimal strategy.
 
 **Output:** Research plan with prioritized investigation paths
 
@@ -43,102 +47,136 @@ This document contains the detailed methodology for conducting deep research. Th
 
 ## Phase 3: RETRIEVE - Parallel Information Gathering
 
-**Objective:** Systematically collect information from multiple sources using parallel execution for maximum speed
+**Objective:** Systematically collect information from multiple sources using parallel
+execution for maximum speed
 
-**CRITICAL: Execute ALL searches in parallel using a single message with multiple tool calls**
+**CRITICAL: Execute ALL searches in parallel using a single message with multiple tool
+calls.** Hermes runs independent tool calls in the same turn concurrently — batch them.
+
+### Step 0: Get the current date
+
+Before ANY searches, retrieve today's date: `date +%Y-%m-%d`
+Use the returned year for all date-filtered queries and recency checks. Do NOT assume a
+year from training data.
+
+### The Search Ladder
+
+Search proceeds as a ladder — start local, escalate outward only as needed. Each rung
+feeds the next: note what you found, what gaps remain, and target the next rung at
+those gaps.
+
+#### Rung 1: Local wiki (`~/grimoire`) — always first
+
+The shared wiki may already contain synthesized pages and raw sources on the topic.
+Search it before touching the web:
+
+```
+mcp__obsidian_grimoire__search_notes(query="<concept>", limit=10)
+mcp__obsidian_grimoire__search_notes(query="<alternate phrasing>", limit=10)
+```
+
+- Read the index (`index.md`) if the topic area is unfamiliar.
+- Hits in `raw/` are immutable primary sources; hits elsewhere are synthesized pages.
+- **Provenance rule:** when citing wiki content, trace it to the *original* source
+  whenever possible. Raw sources carry `source_url:` in their frontmatter — cite THAT
+  URL in the bibliography, not the wiki page. Synthesized wiki pages list their sources
+  in frontmatter (`sources: [raw/articles/x.md]`) — follow them to the raw file, then
+  to its `source_url:`. Only cite the wiki page itself when the claim is the wiki's own
+  synthesis.
+- Register grimoire-derived sources in `sources.jsonl` with their original URL and a
+  `via: "grimoire"` note so the provenance chain is explicit.
+
+#### Rung 2: Kagi MCP — primary web search
+
+```
+mcp__kagi__kagi_search_fetch(query="...", limit=10)
+```
+
+- Supports lenses (`lens_id`: 2 = Academic, 29 = News 360, 15 = Programming, etc.),
+  domain filters (`include_domains`/`exclude_domains`), date filters
+  (`after`/`before`/`time_relative`), and workflows (`search`, `news`, `videos`,
+  `podcasts`, `images`).
+- Use `extract_count: 1-3` on the most promising queries to inline full page content
+  in the same call — saves a round trip.
+- For deep-dives on a specific URL: `mcp__kagi__kagi_extract(url=...)`.
+
+#### Rung 3: Exa MCP — semantic/neural search and gap-filling
+
+```
+mcp__exa__web_search_exa(query="<semantically rich description of ideal page>", numResults=10)
+```
+
+- Exa's strength is semantic retrieval: describe the *ideal page*, not keywords
+  ("blog post comparing X and Y performance", not "X vs Y").
+- Use alongside Kagi for coverage, and specifically to fill gaps Kagi left:
+  alternative perspectives, academic treatments, older foundational sources.
+- For full content of known URLs: `mcp__exa__web_fetch_exa(urls=[...])` (batch up to
+  several URLs in one call).
+
+**Escalation guidance:** Rungs 1+2 are mandatory for Standard mode and above. Rung 3 is
+mandatory for Deep/UltraDeep and recommended for Standard when Kagi coverage is thin or
+the topic is conceptual/nuanced. Quick mode: Rung 1 + one Kagi batch.
 
 ### Query Decomposition Strategy
 
-Before launching searches, decompose the research question into 5-10 independent search angles:
+Before launching searches, decompose the research question into 5-10 independent search
+angles:
 
-1. **Core topic (semantic search)** - Meaning-based exploration of main concept
-2. **Technical details (keyword search)** - Specific terms, APIs, implementations
-3. **Recent developments (date-filtered)** - What's new in last 12-18 months (use current date from Step 0)
-4. **Academic sources (domain-specific)** - Papers, research, formal analysis
-5. **Alternative perspectives (comparison)** - Competing approaches, criticisms
-6. **Statistical/data sources** - Quantitative evidence, metrics, benchmarks
+1. **Core topic (semantic)** - Meaning-based exploration of main concept (Exa shines here)
+2. **Technical details (keyword)** - Specific terms, APIs, implementations (Kagi)
+3. **Recent developments (date-filtered)** - Last 12-18 months (Kagi `time_relative` or
+   `after`, using the date from Step 0)
+4. **Academic sources** - Papers, formal analysis (Kagi `lens_id: 2`, Exa with
+   paper-oriented queries, or the arxiv skill)
+5. **Alternative perspectives** - Competing approaches, criticisms
+6. **Statistical/data sources** - Quantitative evidence, benchmarks
 7. **Industry analysis** - Commercial applications, market trends
 8. **Critical analysis/limitations** - Known problems, failure modes, edge cases
 
 ### Parallel Execution Protocol
 
-**Step 0: Get the current date**
-
-Before ANY searches, retrieve today's date using Bash: `date +%Y-%m-%d`
-Use the returned year for all date-filtered queries and recency checks. Do NOT assume a year from training data.
-
 **Step 1: Launch ALL searches concurrently (single message)**
 
-**CRITICAL: Use correct tool and parameters to avoid errors**
+Example (Standard mode, after grimoire sweep):
 
-**Primary: search-cli (multi-provider, always use first)**
-- Unified CLI aggregating Brave, Serper, Exa, Jina, and Firecrawl
-- Auto-detects best provider per query type (academic, news, general, people)
-- JSON output for structured processing: `search "query" --json`
-- Modes: general, news, academic, scholar, patents, people, images, extract, scrape
-- Example: `search "quantum computing 2025" -m academic --json -c 15`
-- For page content extraction: `search "URL" -m extract --json`
-- For scraping: `search "URL" -m scrape --json`
-- Run via Bash tool: `search "query" --json -c 10`
+```
+[Single message with multiple tool calls]
+- mcp__kagi__kagi_search_fetch(query="quantum computing state of the art 2026", limit=10, extract_count=2)
+- mcp__kagi__kagi_search_fetch(query="quantum computing limitations challenges", limit=10)
+- mcp__kagi__kagi_search_fetch(query="quantum computing commercial applications", workflow="news", time_relative="month", limit=10)
+- mcp__kagi__kagi_search_fetch(query="quantum error correction", lens_id="2", limit=10)
+- mcp__exa__web_search_exa(query="technical deep-dive explaining why quantum error correction is hard", numResults=10)
+- mcp__exa__web_search_exa(query="critical analysis of quantum computing hype and failure modes", numResults=10)
+```
 
-**Fallback: WebSearch (if search-cli fails or is unavailable)**
-- Built-in Claude web search, no setup required
-- Parameters: `query` (required), optional `allowed_domains`, `blocked_domains`
-- Use when: search-cli returns errors, rate-limited, or for domain-restricted queries
+**Step 2: Spawn parallel deep-dive subagents (Deep/UltraDeep, optional in Standard)**
 
-**Optional: Exa MCP (if configured, for semantic/neural search)**
-- Tool name: `mcp__Exa__exa_search`
-- Use for semantic exploration alongside search-cli keyword results
+Use `delegate_task` (batch mode, up to 3 concurrent) for multi-step investigations:
 
-
-**NEVER mix parameter styles** - this causes "Invalid tool parameters" errors.
-
-**Step 2: Spawn parallel deep-dive agents**
-
-Use Task tool with general-purpose agents (3-5 agents) for:
 - Academic paper analysis (PDFs, detailed extraction)
 - Documentation deep dives (technical specs, API docs)
 - Repository analysis (code examples, implementations)
-- Specialized domain research (requires multi-step investigation)
+- Specialized domain research
 
-**Sub-agent output format:** Require all sub-agents to return structured evidence, not free text:
+```
+delegate_task(tasks=[
+  {"goal": "Analyze [papers list] and extract key findings with exact quotes + URLs",
+   "context": "Return structured evidence JSON, not prose. Research question: ..."},
+  {"goal": "...", "context": "..."}
+])
+```
+
+**Subagent output format:** Require all subagents to return structured evidence, not
+free text:
+
 ```json
-{"claim": "specific claim text", "evidence_quote": "exact quote from source", "source_url": "https://...", "source_title": "...", "confidence": 0.85}
-```
-This prevents synthesis fatigue when merging results from 3-5 agents.
-
-**Evidence persistence (v3.0):** After each retrieval batch, persist evidence immediately:
-```bash
-# Register the source first (returns stable source_id)
-python scripts/citation_manager.py register-source --json '{"raw_url": "...", "title": "..."}' --dir [folder]
-
-# Then persist each evidence span from that source
-python scripts/evidence_store.py add --json '{"source_id": "...", "quote": "exact text", "evidence_type": "direct_quote", "locator": "page 5"}' --dir [folder]
-```
-Evidence must not live only in model context — it must be persisted to `evidence.jsonl` before synthesis begins. This ensures continuation agents and claim-support verification can access the full evidence trail.
-
-**Example parallel execution (using search-cli via Bash):**
-```
-[Single message with multiple Bash tool calls]
-- Bash: search "quantum computing 2026 state of the art" --json -c 10
-- Bash: search "quantum computing limitations challenges" --json -c 10
-- Bash: search "quantum computing commercial applications 2026" -m news --json -c 10
-- Bash: search "quantum computing vs classical comparison" --json -c 10
-- Bash: search "quantum error correction research" -m academic --json -c 10
-- Task(subagent_type="general-purpose", description="Analyze quantum computing papers", prompt="Deep dive into quantum computing academic papers from [CURRENT_YEAR], extract key findings and methodologies")
-- Task(subagent_type="general-purpose", description="Industry analysis", prompt="Analyze quantum computing industry reports and market data, identify commercial applications")
-- Task(subagent_type="general-purpose", description="Technical challenges", prompt="Extract technical limitations and challenges from quantum computing research")
+{"claim": "specific claim text", "evidence_quote": "exact quote from source",
+ "source_url": "https://...", "source_title": "...", "confidence": 0.85}
 ```
 
-**Example parallel execution (using Exa MCP - if available):**
-```
-[Single message with multiple tool calls]
-- mcp__Exa__exa_search(query="quantum computing state of the art", type="neural", num_results=10, start_published_date="[use current year from Step 0]")
-- mcp__Exa__exa_search(query="quantum computing limitations", type="keyword", num_results=10)
-- mcp__Exa__exa_search(query="quantum computing commercial", type="auto", num_results=10, start_published_date="[use current year from Step 0]")
-- mcp__Exa__exa_search(query="quantum error correction", type="neural", num_results=10, include_domains=["arxiv.org"])
-- Task(subagent_type="general-purpose", description="Academic analysis", prompt="Analyze quantum computing academic papers")
-```
+This prevents synthesis fatigue when merging results from multiple agents. Note that
+subagents do NOT share your conversation context — pass everything they need in the
+`context` field, and require them to return URLs/paths you can verify yourself.
 
 **Step 3: Collect and organize results**
 
@@ -149,11 +187,28 @@ As results arrive:
 4. Maintain source diversity (mix academic, industry, news, technical docs)
 5. Monitor for quality threshold (see FFS pattern below)
 
+### Evidence persistence (mandatory)
+
+After each retrieval batch, persist evidence immediately:
+
+```bash
+# Register the source first (returns stable source_id)
+python scripts/citation_manager.py register-source --json '{"raw_url": "...", "title": "..."}' --dir [folder]
+
+# Then persist each evidence span from that source
+python scripts/evidence_store.py add --json '{"source_id": "...", "quote": "exact text", "evidence_type": "direct_quote", "locator": "page 5"}' --dir [folder]
+```
+
+Evidence must not live only in model context — it must be persisted to `evidence.jsonl`
+before synthesis begins. This survives context compaction and gives continuation
+subagents and claim-support verification the full evidence trail.
+
 ### First Finish Search (FFS) Pattern
 
 **Adaptive completion based on quality threshold:**
 
-**Quality gate:** Proceed to Phase 4 when FIRST threshold reached:
+Proceed to Phase 4 when FIRST threshold reached:
+
 - **Quick mode:** 10+ sources with avg credibility >60/100 OR 2 minutes elapsed
 - **Standard mode:** 15+ sources with avg credibility >60/100 OR 5 minutes elapsed
 - **Deep mode:** 25+ sources with avg credibility >70/100 OR 10 minutes elapsed
@@ -178,15 +233,15 @@ As results arrive:
 - Prioritize high-credibility sources (>80) for core claims
 
 **Techniques:**
-- Use search-cli for all searches (primary tool, multi-provider)
-- Fall back to WebSearch if search-cli fails or is rate-limited
-- Use WebFetch for deep dives into specific sources (secondary)
-- Use Exa search (via WebSearch with type="neural") for semantic exploration
-- Use Grep/Read for local documentation
-- Execute code for computational analysis (when needed)
-- Use Task tool to spawn parallel retrieval agents (3-5 agents)
+- Grimoire search first (local, free, pre-vetted)
+- Kagi MCP for web search (primary), Exa MCP for semantic/gap-filling
+- Kagi extract / Exa fetch for full page content
+- `web_search` (built-in) as last-resort fallback if both MCPs fail
+- `delegate_task` for parallel deep-dive subagents
+- `execute_code` for computational analysis (when needed)
 
-**Output:** Organized information repository with source tracking, credibility scores, and coverage map
+**Output:** Organized information repository with source tracking, credibility scores,
+and coverage map
 
 ---
 
@@ -212,11 +267,12 @@ As results arrive:
 
 ---
 
-## Phase 4.5: OUTLINE REFINEMENT - Dynamic Evolution (WebWeaver 2025)
+## Phase 4.5: OUTLINE REFINEMENT - Dynamic Evolution
 
 **Objective:** Adapt research direction based on evidence discovered
 
-**Problem Solved:** Prevents "locked-in" research when evidence points to different conclusions or uncovers more important angles than initially planned.
+**Problem Solved:** Prevents "locked-in" research when evidence points to different
+conclusions or uncovers more important angles than initially planned.
 
 **When to Execute:**
 - **Standard/Deep/UltraDeep modes only** (Quick mode skips this)
@@ -287,19 +343,19 @@ As results arrive:
 
 **Quality Standards:**
 - Adaptation must be evidence-driven (cite specific sources that prompted change)
-- No more than 50% outline restructuring (if more needed, scope was severely mis scoped)
+- No more than 50% outline restructuring (if more needed, scope was severely mis-scoped)
 - Retain original research question core (don't drift into different topic entirely)
 - New sections must have supporting evidence already gathered
 
 **Output:** Refined outline that accurately reflects evidence landscape, ready for synthesis
 
 **Anti-Pattern Warning:**
-- ❌ DON'T adapt outline based on speculation or "what would be interesting"
-- ❌ DON'T add sections without supporting evidence already in hand
-- ❌ DON'T completely abandon original research question
-- ✅ DO adapt when evidence clearly indicates better structure
-- ✅ DO document rationale for changes
-- ✅ DO stay within original topic scope
+- DON'T adapt outline based on speculation or "what would be interesting"
+- DON'T add sections without supporting evidence already in hand
+- DON'T completely abandon original research question
+- DO adapt when evidence clearly indicates better structure
+- DO document rationale for changes
+- DO stay within original topic scope
 
 ---
 
@@ -315,7 +371,8 @@ As results arrive:
 5. Build argument structures
 6. Develop evidence hierarchies
 
-**Ultrathink Integration:** Use extended reasoning to explore non-obvious connections and second-order implications.
+**Reasoning:** Use extended reasoning (`/reasoning high` if the session supports it) to
+explore non-obvious connections and second-order implications.
 
 **Output:** Synthesized understanding with insight generation
 
@@ -346,8 +403,14 @@ Simulate 2-3 specific critic personas relevant to the topic:
 - "Adversarial Reviewer" — What would a peer reviewer reject?
 - "Implementation Engineer" — Can these recommendations actually be executed?
 
+For high-stakes topics, delegate one persona to a subagent (`delegate_task`) with the
+draft findings as context — a fresh context with no sunk-cost in the research produces
+sharper criticism.
+
 **Critical Gap Loop-Back:**
-If critique identifies a critical knowledge gap (not just a writing issue), return to Phase 3 with targeted "delta-queries" before proceeding to Phase 7. Time-box to 3-5 minutes. This prevents publishing reports with known blind spots.
+If critique identifies a critical knowledge gap (not just a writing issue), return to
+Phase 3 with targeted "delta-queries" before proceeding to Phase 7. Time-box to 3-5
+minutes. This prevents publishing reports with known blind spots.
 
 **Output:** Critique report with improvement recommendations
 
@@ -380,6 +443,8 @@ If critique identifies a critical knowledge gap (not just a writing issue), retu
 4. Create visualizations (tables, diagrams)
 5. Compile full bibliography
 6. Add methodology appendix
+7. Prepare grimoire-ready artifacts (see report-assembly.md)
+8. Deliver in chat (never auto-open a browser)
 
 **Output:** Complete research report ready for use
 
@@ -395,13 +460,16 @@ Rather than linear thinking, branch into multiple reasoning paths:
 - Merge insights from different branches
 - Backtrack and revise as new information emerges
 
-### Parallel Agent Deployment
+### Parallel Subagent Deployment
 
-Use Task tool to spawn sub-agents for:
+Use `delegate_task` to spawn subagents for:
 - Parallel source retrieval
 - Independent verification paths
 - Competing hypothesis evaluation
 - Specialized domain analysis
+
+Subagent results are self-reports — for anything load-bearing (a quoted statistic, a
+claimed URL), spot-verify with a direct fetch before it goes in the report.
 
 ### Adaptive Depth Control
 
@@ -415,7 +483,7 @@ Automatically adjust research depth based on:
 
 Smart citation management:
 - Track provenance of every claim
-- Link to original sources
+- Link to original sources (grimoire hits traced to their `source_url:`)
 - Assess source credibility
 - Handle conflicting sources
 - Generate proper bibliographies

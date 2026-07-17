@@ -1,26 +1,48 @@
 > [!note]
-> Forked from [199-biotechnologies/claude-deep-research-skill](https://github.com/199-biotechnologies/claude-deep-research-skill) at commit [f2f2c0f](https://github.com/199-biotechnologies/claude-deep-research-skill/commit/f2f2c0fa4e7617ca84c86b63f4bb40f77a746933) on July 17th 2026.
+> Forked from [199-biotechnologies/claude-deep-research-skill](https://github.com/199-biotechnologies/claude-deep-research-skill) at commit [f2f2c0f](https://github.com/199-biotechnologies/claude-deep-research-skill/commit/f2f2c0fa4e7617ca84c86b63f4bb40f77a746933) on July 17th 2026, and rewritten for Hermes Agent.
 
-# Deep Research Skill for Claude Code
+# Deep Research Skill for Hermes
 
-Enterprise-grade research engine for Claude Code. Produces citation-backed reports with source credibility scoring, multi-provider search, and automated validation.
+Enterprise-grade research engine for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+Produces citation-backed reports with source credibility scoring, layered search
+(local wiki -> Kagi -> Exa), and automated validation.
 
 ## Installation
 
 ```bash
-# Clone into Claude Code skills directory
-git clone https://github.com/199-biotechnologies/claude-deep-research-skill.git ~/.claude/skills/deep-research
+# Clone into the Hermes skills directory
+git clone https://github.com/necopinus/hermes-skill-deep-research.git ~/.hermes/skills/research/deep-research
 ```
 
-No additional dependencies required for basic usage.
+No additional dependencies required for basic usage (Python 3.9+ stdlib only).
 
-### Optional: search-cli (multi-provider search)
+### Prerequisites (MCP servers)
 
-For aggregated search across Brave, Serper, Exa, Jina, and Firecrawl:
+The search ladder runs over MCP servers configured in the Hermes config:
+
+| Server | Role | Setup |
+|--------|------|-------|
+| obsidian-grimoire | Local wiki, searched first | Obsidian MCP pointed at `~/grimoire` |
+| kagi | Primary web search | Kagi MCP + API key |
+| exa | Semantic/neural search | Exa MCP + API key |
+
+Reports are written to the `~/research` Obsidian vault via the `obsidian-research`
+MCP server. If that vault/server isn't configured, fall back to plain file writes
+(the skill degrades gracefully, but the MCP route is the intended path).
+
+### Optional: obsidian-headless (vault sync)
+
+To push the research vault to Obsidian Sync after a report completes:
 
 ```bash
-brew tap 199-biotechnologies/tap && brew install search-cli
-search config set keys.brave YOUR_KEY  # configure at least one provider
+# Requires Node.js 22+ — invoked via npx, no global install
+cd ~/research && npx --package=obsidian-headless --yes -- ob sync
+```
+
+### Optional: WeasyPrint (PDF output)
+
+```bash
+pip install weasyprint   # user-level install
 ```
 
 ## Usage
@@ -44,24 +66,31 @@ deep research in ultradeep mode: compare PostgreSQL vs Supabase for our stack
 
 ## Pipeline
 
-Scope &rarr; Plan &rarr; **Retrieve** (parallel search + agents) &rarr; Triangulate &rarr; Outline Refinement &rarr; Synthesize &rarr; Critique (with loop-back) &rarr; Refine &rarr; Package
+Scope &rarr; Plan &rarr; **Retrieve** (search ladder + parallel subagents) &rarr; Triangulate &rarr; Outline Refinement &rarr; Synthesize &rarr; Critique (with loop-back) &rarr; Refine &rarr; Package
 
 Key features:
 - **Step 0**: Retrieves current date before searches (prevents stale training-data year assumptions)
-- **Parallel retrieval**: 5-10 concurrent searches + 2-3 focused sub-agents returning structured evidence objects
+- **Search ladder**: local wiki (`~/grimoire`) &rarr; Kagi MCP &rarr; Exa MCP, with provenance tracing to original URLs
+- **Parallel retrieval**: batched concurrent searches + `delegate_task` subagents returning structured evidence objects
 - **First Finish Search**: Adaptive quality thresholds by mode
 - **Critique loop-back**: Phase 6 can return to Phase 3 with delta-queries if critical gaps found
 - **Multi-persona red teaming**: Skeptical Practitioner, Adversarial Reviewer, Implementation Engineer (Deep/UltraDeep)
-- **Disk-persisted citations**: `sources.json` survives context compaction and continuation agents
+- **Disk-persisted citations**: `sources.jsonl` survives context compaction and continuation sessions
 
 ## Output
 
-Reports saved to `~/Documents/[Topic]_Research_[Date]/`:
-- Markdown (primary source of truth)
-- HTML (McKinsey-style, auto-opened in browser)
-- PDF (professional print via WeasyPrint)
+Reports saved to `~/research/[Topic]_Research_[Date]/`:
+- Markdown (primary source of truth, written via the obsidian-research MCP)
+- `bibliography.md` — standalone ingestion map for wiki integration
+- `artifacts/` — source extracts with llm-wiki `raw/` frontmatter, drop-in ready for `~/grimoire/raw/articles/`
+- `sources.jsonl` / `evidence.jsonl` / `claims.jsonl` / `run_manifest.json`
+- HTML (McKinsey-style, optional) and PDF (WeasyPrint, optional) — never auto-opened
 
-Reports >18K words auto-continue via recursive agent spawning with context preservation.
+Delivery is in-chat (summary + path) plus `MEDIA:` attachment on messaging gateways
+(Discord/Telegram receive the report as a native file upload).
+
+Reports >18K words continue via `delegate_task` batches or a fresh Hermes session
+with a `continuation_state.json` handoff (see `reference/continuation.md`).
 
 ## Quality Standards
 
@@ -76,21 +105,22 @@ Reports >18K words auto-continue via recursive agent spawning with context prese
 
 | Tool | Priority | Setup |
 |------|----------|-------|
-| search-cli | **Primary** — all searches go here first | `brew install search-cli` + API keys |
-| WebSearch | Fallback — if search-cli fails or rate-limited | None (built-in) |
-| Exa MCP | Optional — semantic/neural search alongside search-cli | MCP config |
+| obsidian-grimoire MCP | **First** — local wiki, always | MCP config |
+| Kagi MCP | **Primary web search** | MCP config + API key |
+| Exa MCP | **Semantic/gap-fill** | MCP config + API key |
+| web_search | Last-resort fallback | None (built-in) |
 
 ## Architecture
 
 ```
 deep-research/
-├── SKILL.md                          # Skill entry point (lean, ~100 lines)
+├── SKILL.md                          # Skill entry point (lean)
 ├── reference/
-│   ├── methodology.md                # 8-phase pipeline details
-│   ├── report-assembly.md            # Progressive generation strategy
+│   ├── methodology.md                # 8-phase pipeline details + search ladder
+│   ├── report-assembly.md            # Progressive generation + output/sync contract
 │   ├── quality-gates.md              # Validation standards
 │   ├── html-generation.md            # McKinsey HTML conversion
-│   ├── continuation.md               # Auto-continuation protocol
+│   ├── continuation.md               # Continuation protocol (delegate_task / fresh session)
 │   └── weasyprint_guidelines.md      # PDF generation
 ├── templates/
 │   ├── report_template.md            # Report structure template
@@ -102,7 +132,7 @@ deep-research/
 │   ├── citation_manager.py           # Citation tracking
 │   ├── md_to_html.py                 # Markdown to HTML converter
 │   ├── verify_html.py                # HTML verification
-│   └── research_engine.py            # Core orchestration engine
+│   └── research_engine.py            # State scaffold (not a runtime orchestrator)
 └── tests/
     └── fixtures/                     # Test report fixtures
 ```
@@ -111,6 +141,7 @@ deep-research/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.1-hermes | 2026-07-17 | Hermes port: search ladder (grimoire -> Kagi -> Exa), obsidian-research MCP writes, ~/research output + ob sync, MEDIA: delivery, grimoire-ready artifacts, continuation via delegate_task/fresh session |
 | 2.3.1 | 2026-03-19 | Template/validator harmonization, structured evidence, critique loop-back, multi-persona red teaming |
 | 2.3 | 2026-03-19 | Contract harmonization, search-cli integration, dynamic year detection, disk-persisted citations, validation loops |
 | 2.2 | 2025-11-05 | Auto-continuation system for unlimited length |

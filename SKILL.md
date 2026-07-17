@@ -7,9 +7,13 @@ description: Use when the user needs multi-source research with citation trackin
 
 ## Core Purpose
 
-Deliver citation-tracked research reports through a structured pipeline with evidence persistence, source identity management, claim-level verification, and progressive context management.
+Deliver citation-tracked research reports through a structured pipeline with evidence
+persistence, source identity management, claim-level verification, and progressive
+context management.
 
-**Autonomy Principle:** Operate independently. Infer assumptions from context. Only stop for critical errors or incomprehensible queries. Surface high-materiality assumptions explicitly in the Introduction and Methodology rather than silently defaulting.
+**Autonomy Principle:** Operate independently. Infer assumptions from context. Only stop
+for critical errors or incomprehensible queries. Surface high-materiality assumptions
+explicitly in the Introduction and Methodology rather than silently defaulting.
 
 ---
 
@@ -17,7 +21,7 @@ Deliver citation-tracked research reports through a structured pipeline with evi
 
 ```
 Request Analysis
-+-- Simple lookup? --> STOP: Use WebSearch
++-- Simple lookup? --> STOP: Use web_search or Kagi directly
 +-- Debugging? --> STOP: Use standard tools
 +-- Complex analysis needed? --> CONTINUE
 
@@ -28,7 +32,8 @@ Mode Selection
 +-- Comprehensive review --> ultradeep (8+ phases, 20-45 min)
 ```
 
-**Default assumptions:** Technical query = technical audience. Comparison = balanced perspective. Trend = recent 1-2 years.
+**Default assumptions:** Technical query = technical audience. Comparison = balanced
+perspective. Trend = recent 1-2 years.
 
 ---
 
@@ -46,7 +51,20 @@ Mode Selection
 | 7 | REFINE | - | - | Y | Y |
 | 8 | PACKAGE | Y | Y | Y | Y |
 
-**Note:** Phases 3-5 operate as an evidence loop per section (retrieve → evidence store → refine outline → draft → verify claims → delta-retrieve if needed), not as strict sequential gates.
+**Note:** Phases 3-5 operate as an evidence loop per section (retrieve -> evidence
+store -> refine outline -> draft -> verify claims -> delta-retrieve if needed), not as
+strict sequential gates.
+
+---
+
+## Search Ladder (summary)
+
+1. **`~/grimoire`** — `mcp__obsidian_grimoire__search_notes` first, always. Trace hits
+   to their original `source_url:` for citations.
+2. **Kagi MCP** — `mcp__kagi__kagi_search_fetch` is the primary web search.
+3. **Exa MCP** — `mcp__exa__web_search_exa` for semantic search and gap-filling.
+
+Details in [methodology.md](./reference/methodology.md) Phase 3.
 
 ---
 
@@ -83,14 +101,18 @@ Mode Selection
 - Bibliography (COMPLETE - every citation, no placeholders)
 - Methodology Appendix
 
-**Output files (all to `~/Documents/[Topic]_Research_[YYYYMMDD]/`):**
-- Markdown (primary source of truth)
+**Output files (all to `~/research/[Topic]_Research_[YYYYMMDD]/`):**
+- Markdown report (primary source of truth) — written via `mcp__obsidian_research__write_note`
+- `bibliography.md` — standalone ingestion map for future wiki integration (MCP-written)
+- `artifacts/` — grimoire-raw-ready markdown extracts of key sources (MCP-written)
 - `sources.jsonl` — stable source registry with canonical IDs
 - `evidence.jsonl` — append-only evidence store with quotes and locators
 - `claims.jsonl` — atomic claim ledger with support status
 - `run_manifest.json` — query, mode, assumptions, provider config
-- HTML (McKinsey style, auto-opened)
-- PDF (professional print, auto-opened)
+- HTML (McKinsey style, optional — NEVER auto-opened)
+- PDF (WeasyPrint, optional — NEVER auto-opened)
+
+**After completion:** sync the vault once — `cd ~/research && npx --package=obsidian-headless --yes -- ob sync` (no backup step).
 
 **Quality standards:**
 - 10+ sources, 3+ per major claim (cluster-independent, not just count)
@@ -101,8 +123,30 @@ Mode Selection
 
 ---
 
+## Delivery Contract
+
+**NEVER auto-open the report in a browser** (or any other application). Delivery is:
+
+1. **In-chat:** a compact summary — research question, mode, key findings (3-5 bullets),
+   source count, validation status, and the report path.
+2. **Attachment (gateway sessions):** reference the report with a `MEDIA:` line so the
+   platform delivers it as a native attachment:
+
+   ```
+   MEDIA:/home/exedev/research/[Topic]_Research_[YYYYMMDD]/research_report_[...].md
+   ```
+
+   On Discord/Telegram this arrives as a file upload. If a PDF was generated, prefer
+   attaching the PDF (more mobile-friendly) and mention the markdown path. In TUI/CLI
+   sessions, MEDIA lines are just saved paths — the summary + path is the deliverable.
+3. **Wiki note:** the report lives in the `~/research` vault, so it is already
+   searchable/linkable in Obsidian after `ob sync` runs.
+
+---
+
 ## When to Use / NOT Use
 
-**Use:** Comprehensive analysis, technology comparisons, state-of-the-art reviews, multi-perspective investigation, market analysis.
+**Use:** Comprehensive analysis, technology comparisons, state-of-the-art reviews,
+multi-perspective investigation, market analysis.
 
 **Do NOT use:** Simple lookups, debugging, 1-2 search answers, quick time-sensitive queries.

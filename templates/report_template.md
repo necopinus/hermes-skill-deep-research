@@ -10,8 +10,9 @@ written to file immediately using Write/Edit tools.
 WHY: Manages output token limits while maintaining quality throughout
 RESULT: Large reports (up to 20,000 words per skill run) - sections sized naturally by content
 
-CLAUDE CODE LIMIT: 32,000 output tokens (≈20,000 words max per run)
-For reports >20,000 words: Run skill multiple times for different parts
+HERMES: Output limits vary by model/provider. Keep each individual generation under
+~2,000 words and assemble progressively — that stays safe everywhere.
+For reports >18,000 words: use the continuation protocol (reference/continuation.md)
 
 GENERATION WORKFLOW:
 1. Generate Executive Summary → Write to file
@@ -102,7 +103,7 @@ CITATION TRACKING (CRITICAL):
 [2-3 paragraphs explaining:]
 - What specific aspects were investigated
 - What was included vs excluded from scope
-- What research methods were used (web search, academic sources, industry reports, etc.)
+- What research methods were used (wiki search, Kagi, Exa, academic sources, industry reports, etc.)
 - How many sources were consulted
 - Time period covered
 

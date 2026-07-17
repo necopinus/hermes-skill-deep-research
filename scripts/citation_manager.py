@@ -122,7 +122,9 @@ def cmd_init_run(args: argparse.Namespace) -> None:
         'finished_at': None,
         'assumptions': [],
         'provider_config': {
-            'primary': 'search-cli',
+            'local_wiki': 'obsidian-grimoire',
+            'primary': 'kagi',
+            'semantic': 'exa',
             'scholarly': None,
         },
         'report_dir': out_dir,

@@ -2,13 +2,17 @@
 #
 # Core: Python 3.9+ standard library only. No pip install needed.
 #
+# Search is provided by Hermes MCP servers — no external CLI required:
+#   - obsidian-grimoire MCP (local wiki, searched first)
+#   - Kagi MCP (primary web search)
+#   - Exa MCP (semantic/neural search)
+#
 # Optional tools (not Python packages):
 #
-# search-cli — multi-provider search aggregation (Brave, Serper, Exa, Jina, Firecrawl)
-#   Install: brew tap 199-biotechnologies/tap && brew install search-cli
-#   Config:  search config set keys.[provider] YOUR_KEY
-#   Repo:    https://github.com/199-biotechnologies/search-cli
+# obsidian-headless — Obsidian Sync for the ~/research vault
+#   Invoke:  npx --package=obsidian-headless --yes -- ob sync
+#   Requires Node.js 22+
 #
 # weasyprint — PDF generation from HTML reports
-#   Install: pip install weasyprint
+#   Install: pip install weasyprint   (user-level; or use uvx)
 #   Used by: reference/html-generation.md (Phase 8 PDF output)
