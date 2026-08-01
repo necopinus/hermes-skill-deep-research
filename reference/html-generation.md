@@ -95,8 +95,12 @@ sessions, attach it with a `MEDIA:` line (see the Delivery Contract in SKILL.md)
    - `orphans: 3; widows: 3` on paragraphs
    - Use `display: table` not Flexbox/Grid
    - Font sizes in pt (10pt body, 8pt citations)
+   - **NO negative or tight `letter-spacing`** — it fuses words in the text layer
 3. Generate: `weasyprint [html_path] [pdf_path]`
-4. Deliver: report the path / attach via `MEDIA:` — never auto-open
+4. **Verify text layer (mandatory):** `python scripts/verify_pdf_text.py --pdf [pdf_path]`
+   — must PASS before delivery (see quality-gates.md). On FAIL, fix the HTML/CSS
+   (letter-spacing, justification, white-space) and regenerate.
+5. Deliver: report the path / attach via `MEDIA:` — never auto-open
 
 **Option B: Dedicated PDF skill**
 

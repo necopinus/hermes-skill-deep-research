@@ -36,19 +36,55 @@ python scripts/validate_report.py --report [path]
 - Attempt 2: Manual review + correction
 - After 2 failures: STOP, report issues, ask user
 
+### PDF Text-Layer Verification (MarkItDown-friendly)
+
+**Mandatory whenever a PDF is generated.** A PDF that looks fine visually can still
+have a broken text layer — run-together words ("researchshows"), missing spaces,
+ligature/encoding artifacts — which corrupts every downstream consumer that extracts
+text (MarkItDown, LLM ingestion, search indexing). Check BEFORE delivery:
+
+```bash
+python scripts/verify_pdf_text.py --pdf [pdf_path]
+```
+
+**Checks (stdlib-only; uses pypdf if installed, else pdftotext):**
+1. Extractability — text layer exists (not image-only)
+2. Run-together words — fused-word candidates via a hard length ceiling (>20 chars)
+   plus a both-halves-common-word split heuristic
+3. Space density — spaces-per-alpha-char floor catches catastrophic space loss
+4. Encoding artifacts — U+FFFD replacement chars
+5. Ligatures/soft hyphens — warned when pervasive
+
+**On FAIL:**
+- First check the HTML source: remove negative/tight `letter-spacing`, avoid
+  `text-align: justify` with narrow columns, ensure spaces aren't being collapsed
+  by CSS (`white-space` rules)
+- Regenerate the PDF and re-run until clean
+- `--lenient` only when the report legitimately contains many long technical tokens
+  (document the reason in the methodology appendix)
+- Also spot-read one page of `pdftotext [pdf] -` output yourself — the automated
+  check is precision-first and can miss fusions where one half is technical vocab
+  (e.g. 'thatsuperconducting'). If you see fused words the script missed, treat it
+  as a FAIL and fix the HTML.
+
+**Do NOT deliver a PDF that fails this check** unless the user explicitly accepts
+the text-layer defect (e.g. they only need the visual document).
+
 ### Validation Loop Protocol
 
 **After generating ANY report, run this loop:**
 
 1. Run `python scripts/validate_report.py --report [path]`
 2. Run `python scripts/verify_citations.py --report [path]`
-3. If EITHER fails:
+3. **If a PDF was generated:** run `python scripts/verify_pdf_text.py --pdf [pdf_path]`
+4. If ANY fails:
    - Read error output carefully
    - Fix the specific issues identified
-   - Re-run BOTH validators
-4. Maximum 3 retry cycles. If still failing after 3 cycles: STOP and report issues to user.
+   - Re-run ALL applicable validators
+5. Maximum 3 retry cycles. If still failing after 3 cycles: STOP and report issues to user.
 
-**Do NOT skip validation.** Every report must pass both scripts before delivery.
+**Do NOT skip validation.** Every report must pass the markdown validators before
+delivery, and every PDF must pass `verify_pdf_text.py`.
 
 ---
 

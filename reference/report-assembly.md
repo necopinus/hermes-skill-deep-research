@@ -41,12 +41,15 @@ After the final report is written (and after any continuation finalizes), trigge
 Obsidian Sync push:
 
 ```bash
-cd ~/research && npx --package=obsidian-headless --yes -- ob sync
+cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync
 ```
 
 Run once at the end — not per section. `ob` requires Node 22+ and is always invoked
-via `npx --package=obsidian-headless --yes -- ob` (no global install). **No backup
-step** — the vault itself is the canonical store, synced remotely.
+via `env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob`
+(no global install). The `env PATH=...` prefix is REQUIRED on this host: it pins
+Node 22 (`~/.local/bin/node`, modules 127) ahead of the nix-profile Node 24, so
+native modules (better-sqlite3) build against and load from the same Node ABI.
+**No backup step** — the vault itself is the canonical store, synced remotely.
 
 ---
 

@@ -36,7 +36,8 @@ To push the research vault to Obsidian Sync after a report completes:
 
 ```bash
 # Requires Node.js 22+ — invoked via npx, no global install
-cd ~/research && npx --package=obsidian-headless --yes -- ob sync
+# The env PATH prefix pins Node 22 (~/.local/bin/node) ahead of nix Node 24 (ABI match)
+cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync
 ```
 
 ### Optional: WeasyPrint (PDF output)
@@ -68,10 +69,16 @@ deep research in ultradeep mode: compare PostgreSQL vs Supabase for our stack
 
 Scope &rarr; Plan &rarr; **Retrieve** (search ladder + parallel subagents) &rarr; Triangulate &rarr; Outline Refinement &rarr; Synthesize &rarr; Critique (with loop-back) &rarr; Refine &rarr; Package
 
+**Delegation-first:** phases 3-8 run in `delegate_task` subagents (retrieval processing,
+triangulation, outline analysis, per-finding section drafting, persona critiques,
+targeted refinements). The main context keeps only scope/plan, cross-section synthesis,
+and final validation — this keeps the bulk of token spend in subagents.
+
 Key features:
 - **Step 0**: Retrieves current date before searches (prevents stale training-data year assumptions)
 - **Search ladder**: local wiki (`~/grimoire`) &rarr; Kagi MCP &rarr; Exa MCP, with provenance tracing to original URLs
 - **Parallel retrieval**: batched concurrent searches + `delegate_task` subagents returning structured evidence objects
+- **Delegated synthesis**: per-finding section-drafting subagents write directly to the report via MCP; main context writes only the cross-cutting Synthesis section
 - **First Finish Search**: Adaptive quality thresholds by mode
 - **Critique loop-back**: Phase 6 can return to Phase 3 with delta-queries if critical gaps found
 - **Multi-persona red teaming**: Skeptical Practitioner, Adversarial Reviewer, Implementation Engineer (Deep/UltraDeep)
@@ -99,6 +106,7 @@ with a `continuation_state.json` handoff (see `reference/continuation.md`).
 - Findings 600-2,000 words each, prose-first (>=80%)
 - Full bibliography with URLs, no placeholders
 - Automated validation: `validate_report.py` (9 checks) + `verify_citations.py` (DOI/URL/hallucination detection)
+- PDF text-layer verification: `verify_pdf_text.py` (run-together words, space density, encoding) — mandatory before delivery when a PDF is generated
 - Validation loop: validate &rarr; fix &rarr; retry (max 3 cycles)
 
 ## Search Tools
@@ -128,6 +136,7 @@ deep-research/
 ├── scripts/
 │   ├── validate_report.py            # 9-check structure validator
 │   ├── verify_citations.py           # DOI/URL/hallucination checker
+│   ├── verify_pdf_text.py            # PDF text-layer checker (MarkItDown-friendly)
 │   ├── source_evaluator.py           # Source credibility scoring
 │   ├── citation_manager.py           # Citation tracking
 │   ├── md_to_html.py                 # Markdown to HTML converter
@@ -141,6 +150,7 @@ deep-research/
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 3.2-hermes | 2026-08-01 | Delegation-first pipeline (phases 3-8 delegated to subagents; main context keeps scope/plan/final validation); mandatory PDF text-layer verification (`verify_pdf_text.py`, MarkItDown-friendly); PDF always generated + attached in gateway sessions; `env PATH` pin for `ob sync` (Node ABI) |
 | 3.1-hermes | 2026-07-17 | Hermes port: search ladder (grimoire -> Kagi -> Exa), obsidian-research MCP writes, ~/research output + ob sync, MEDIA: delivery, grimoire-ready artifacts, continuation via delegate_task/fresh session |
 | 2.3.1 | 2026-03-19 | Template/validator harmonization, structured evidence, critique loop-back, multi-persona red teaming |
 | 2.3 | 2026-03-19 | Contract harmonization, search-cli integration, dynamic year detection, disk-persisted citations, validation loops |

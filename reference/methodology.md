@@ -149,25 +149,19 @@ Example (Standard mode, after grimoire sweep):
 - mcp__exa__web_search_exa(query="critical analysis of quantum computing hype and failure modes", numResults=10)
 ```
 
-**Step 2: Spawn parallel deep-dive subagents (Deep/UltraDeep, optional in Standard)**
+**Search execution:** The main context issues the search tool calls directly (they are
+cheap, parallel, and stateless), but **result processing is delegated**: after the
+parallel search batch returns, spawn a `delegate_task` subagent to:
 
-Use `delegate_task` (batch mode, up to 3 concurrent) for multi-step investigations:
+1. Score sources with `source_evaluator.py`
+2. Extract and persist evidence with `evidence_store.py`
+3. Register sources with `citation_manager.py`
+4. Return a structured gap analysis: what was found, what's missing, what needs
+   targeted follow-up
 
-- Academic paper analysis (PDFs, detailed extraction)
-- Documentation deep dives (technical specs, API docs)
-- Repository analysis (code examples, implementations)
-- Specialized domain research
+This keeps the main context free of raw search results and full-text extraction.
 
-```
-delegate_task(tasks=[
-  {"goal": "Analyze [papers list] and extract key findings with exact quotes + URLs",
-   "context": "Return structured evidence JSON, not prose. Research question: ..."},
-  {"goal": "...", "context": "..."}
-])
-```
-
-**Subagent output format:** Require all subagents to return structured evidence, not
-free text:
+**Subagent output format for retrieval:**
 
 ```json
 {"claim": "specific claim text", "evidence_quote": "exact quote from source",
@@ -177,6 +171,22 @@ free text:
 This prevents synthesis fatigue when merging results from multiple agents. Note that
 subagents do NOT share your conversation context — pass everything they need in the
 `context` field, and require them to return URLs/paths you can verify yourself.
+
+**Deep-dive subagents (targeted full-text extraction):**
+
+For sources that need full-text analysis (PDFs, long documentation, repos), spawn
+dedicated `delegate_task` subagents (batch mode, up to 3 concurrent):
+
+```
+delegate_task(tasks=[
+  {"goal": "Fetch and extract [URLs] via kagi_extract/exa fetch; persist evidence with evidence_store.py",
+   "context": "Return structured evidence JSON. Research question: ... Output dir: ~/research/[folder]"},
+  {"goal": "...", "context": "..."}
+])
+```
+
+Subagents write directly to `evidence.jsonl`/`sources.jsonl` — the main context only
+consumes their gap-analysis summaries.
 
 **Step 3: Collect and organize results**
 
@@ -249,13 +259,27 @@ and coverage map
 
 **Objective:** Validate information across multiple independent sources
 
-**Activities:**
-1. Identify claims requiring verification
+**Execution: delegated to a subagent.** The main context passes the evidence store
+path and claim candidates; the subagent returns a verification report.
+
+**Activities (subagent):**
+1. Identify claims requiring verification (scan `evidence.jsonl` for clusters)
 2. Cross-reference facts across 3+ sources
 3. Flag contradictions or uncertainties
-4. Assess source credibility
+4. Assess source credibility (via `source_evaluator.py`)
 5. Note consensus vs. debate areas
-6. Document verification status per claim
+6. Write verification status per claim to `claims.jsonl`
+
+**Subagent invocation:**
+
+```
+delegate_task(
+  goal="Triangulate evidence for [topic]: cross-reference claims in evidence.jsonl, write verdicts to claims.jsonl",
+  context="Evidence store: ~/research/[folder]/evidence.jsonl. Sources: sources.jsonl.
+           Return a compact verification report: verified claims, contradictions,
+           single-source flags, consensus map. Research question: [question]"
+)
+```
 
 **Quality Standards:**
 - Core claims must have 3+ independent sources
@@ -263,7 +287,8 @@ and coverage map
 - Note recency of information
 - Identify potential biases
 
-**Output:** Verified fact base with confidence levels
+**Output:** Verified fact base with confidence levels (persisted to `claims.jsonl`;
+compact report returned to main context)
 
 ---
 
@@ -279,7 +304,11 @@ conclusions or uncovers more important angles than initially planned.
 - After Phase 4 (TRIANGULATE) completes
 - Before Phase 5 (SYNTHESIZE)
 
-**Activities:**
+**Execution: delegated.** A subagent analyzes the evidence and triangulation results
+against the original scope, and returns a refined outline + adaptation rationale.
+The main context approves or adjusts before synthesis begins.
+
+**Activities (subagent):**
 
 1. **Review Initial Scope vs. Actual Findings**
    - Compare Phase 1 scope with Phase 3-4 discoveries
@@ -359,22 +388,54 @@ conclusions or uncovers more important angles than initially planned.
 
 ---
 
-## Phase 5: SYNTHESIZE - Deep Analysis
+## Phase 5: SYNTHESIZE - Deep Analysis + Section Drafting
 
-**Objective:** Connect insights and generate novel understanding
+**Objective:** Connect insights, generate novel understanding, and draft report sections
 
-**Activities:**
-1. Identify patterns across sources
-2. Map relationships between concepts
-3. Generate insights beyond source material
-4. Create conceptual frameworks
-5. Build argument structures
-6. Develop evidence hierarchies
+**Execution: delegated per finding/section.** Synthesis is the most token-intensive
+phase — delegate it aggressively. The main context coordinates; subagents draft.
 
-**Reasoning:** Use extended reasoning (`/reasoning high` if the session supports it) to
-explore non-obvious connections and second-order implications.
+**Architecture:**
 
-**Output:** Synthesized understanding with insight generation
+1. **Main context** (control): read the refined outline + triangulation report,
+   decide the finding list, and dispatch section-drafting subagents in batches
+   (up to 3 concurrent).
+
+2. **Section-drafting subagents** (`delegate_task` batch mode): each subagent
+   receives the relevant evidence subset (via `evidence.jsonl` paths + source IDs,
+   not full text), the report style guide, and the target word count. It writes
+   its section directly to the report file via
+   `mcp__obsidian_research__write_note(mode="append")` and returns a 3-sentence
+   abstract of what it wrote (for the main context's synthesis pass).
+
+   ```
+   delegate_task(tasks=[
+     {"goal": "Draft Finding 1 ([title]) for [topic] research report, ~1500 words",
+      "context": "Evidence: ~/research/[folder]/evidence.jsonl (filter to source_ids [...]).
+                  Claims: claims.jsonl. Append to report via obsidian-research MCP:
+                  path=[folder]/research_report_[...].md, mode=append.
+                  Style: prose-first >=80%, cite [N] per factual claim, no placeholders.
+                  Return a 3-sentence abstract of the section."},
+     {"goal": "Draft Finding 2 ...", "context": "..."},
+     {"goal": "Draft Finding 3 ...", "context": "..."}
+   ])
+   ```
+
+3. **Main context** (synthesis): after all finding sections return, read the
+   abstracts (not the full sections) and write the **Synthesis & Insights** section
+   itself — this is the cross-cutting connective tissue and benefits from the main
+   context's global view. Also writes Executive Summary last (after seeing all
+   abstracts).
+
+**Why this split:** finding sections are independent and parallelizable; the
+synthesis section is inherently global and cheap (it works from abstracts). This
+keeps ~80% of drafting tokens in subagents while preserving report coherence.
+
+**Reasoning:** Subagents use extended reasoning on their evidence subsets; the main
+context uses it for cross-section pattern detection.
+
+**Output:** All report sections written to the report file; main context holds
+abstracts + synthesis section
 
 ---
 
@@ -420,9 +481,13 @@ minutes. This prevents publishing reports with known blind spots.
 
 **Objective:** Address gaps and strengthen weak areas
 
-**Activities:**
-1. Conduct additional research for gaps
-2. Strengthen weak arguments
+**Execution: delegated.** For each critique finding that requires new content,
+spawn a targeted subagent (delta-retrieval for gaps, or section-rewrite for weak
+arguments). The main context tracks which findings are resolved.
+
+**Activities (subagents):**
+1. Conduct additional research for gaps (delta-queries, evidence persisted as in Phase 3)
+2. Strengthen weak arguments (targeted section rewrites, appended via MCP)
 3. Add missing perspectives
 4. Resolve contradictions
 5. Enhance clarity
@@ -444,7 +509,9 @@ minutes. This prevents publishing reports with known blind spots.
 5. Compile full bibliography
 6. Add methodology appendix
 7. Prepare grimoire-ready artifacts (see report-assembly.md)
-8. Deliver in chat (never auto-open a browser)
+8. Generate HTML/PDF (PDF mandatory in gateway sessions — see Delivery Contract)
+9. **Verify PDF text layer:** `python scripts/verify_pdf_text.py --pdf [path]` must PASS
+10. Deliver in chat (never auto-open a browser)
 
 **Output:** Complete research report ready for use
 

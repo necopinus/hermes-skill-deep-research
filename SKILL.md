@@ -39,21 +39,27 @@ perspective. Trend = recent 1-2 years.
 
 ## Workflow Overview
 
-| Phase | Name | Quick | Std | Deep | Ultra |
-|-------|------|-------|-----|------|-------|
-| 1 | SCOPE | Y | Y | Y | Y |
-| 2 | PLAN | - | Y | Y | Y |
-| 3 | RETRIEVE | Y | Y | Y | Y |
-| 4 | TRIANGULATE | - | Y | Y | Y |
-| 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y |
-| 5 | SYNTHESIZE | - | Y | Y | Y |
-| 6 | CRITIQUE | - | - | Y | Y |
-| 7 | REFINE | - | - | Y | Y |
-| 8 | PACKAGE | Y | Y | Y | Y |
+| Phase | Name | Quick | Std | Deep | Ultra | Execution Mode |
+|-------|------|-------|-----|------|-------|----------------|
+| 1 | SCOPE | Y | Y | Y | Y | **Main context** (control) |
+| 2 | PLAN | - | Y | Y | Y | **Main context** (control) |
+| 3 | RETRIEVE | Y | Y | Y | Y | **delegate_task** (subagents) |
+| 4 | TRIANGULATE | - | Y | Y | Y | **delegate_task** (subagent synthesis) |
+| 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y | **delegate_task** (subagent analysis) |
+| 5 | SYNTHESIZE | - | Y | Y | Y | **delegate_task** (subagent drafting) |
+| 6 | CRITIQUE | - | - | Y | Y | **delegate_task** (persona subagents) |
+| 7 | REFINE | - | - | Y | Y | **delegate_task** (targeted subagents) |
+| 8 | PACKAGE | Y | Y | Y | Y | **Mixed**: subagents for sections, main for validation |
+
+**Delegation principle:** Phases 3-8 are delegated to subagents whenever they involve
+multi-step generation, analysis, or drafting. The main context handles only:
+- Research framing (Phase 1) and strategy (Phase 2)
+- Final validation and delivery decisions
+- Cross-phase coordination and gap-filling when subagents return incomplete work
 
 **Note:** Phases 3-5 operate as an evidence loop per section (retrieve -> evidence
 store -> refine outline -> draft -> verify claims -> delta-retrieve if needed), not as
-strict sequential gates.
+strict sequential gates. Each loop iteration is a candidate for delegation.
 
 ---
 
@@ -85,6 +91,7 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 **Scripts:**
 - `python scripts/validate_report.py --report [path]`
 - `python scripts/verify_citations.py --report [path]`
+- `python scripts/verify_pdf_text.py --pdf [path]` (mandatory when a PDF is generated)
 - `python scripts/md_to_html.py [markdown_path]`
 
 ---
@@ -110,9 +117,10 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `claims.jsonl` — atomic claim ledger with support status
 - `run_manifest.json` — query, mode, assumptions, provider config
 - HTML (McKinsey style, optional — NEVER auto-opened)
-- PDF (WeasyPrint, optional — NEVER auto-opened)
+- PDF (WeasyPrint — **mandatory in gateway sessions** for mobile delivery; must pass
+  `verify_pdf_text.py` before attachment; NEVER auto-opened)
 
-**After completion:** sync the vault once — `cd ~/research && npx --package=obsidian-headless --yes -- ob sync` (no backup step).
+**After completion:** sync the vault once — `cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync` (no backup step). The `env PATH=...` prefix pins Node 22 (`~/.local/bin/node`) so native modules build and load against the same Node version — required on this host.
 
 **Quality standards:**
 - 10+ sources, 3+ per major claim (cluster-independent, not just count)
@@ -133,12 +141,16 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
    platform delivers it as a native attachment:
 
    ```
-   MEDIA:/home/exedev/research/[Topic]_Research_[YYYYMMDD]/research_report_[...].md
+   MEDIA:/home/exedev/research/[Topic]_Research_[YYYYMMDD]/research_report_[...].pdf
    ```
 
-   On Discord/Telegram this arrives as a file upload. If a PDF was generated, prefer
-   attaching the PDF (more mobile-friendly) and mention the markdown path. In TUI/CLI
-   sessions, MEDIA lines are just saved paths — the summary + path is the deliverable.
+   On Discord/Telegram this arrives as a file upload. **In gateway sessions (Discord,
+   Telegram), ALWAYS generate the PDF** — it is the mobile-friendly artifact and the
+   primary delivery format for users on the move — and attach it via `MEDIA:` (after
+   it passes `verify_pdf_text.py`). Also attach the markdown as a second `MEDIA:` line
+   for users who want the source of truth. In TUI/CLI sessions, MEDIA lines are just
+   saved paths — the summary + path is the deliverable, and PDF generation remains
+   optional.
 3. **Wiki note:** the report lives in the `~/research` vault, so it is already
    searchable/linkable in Obsidian after `ob sync` runs.
 

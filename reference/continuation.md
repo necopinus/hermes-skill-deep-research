@@ -195,6 +195,7 @@ Calculate: current words + remaining sections x avg_words_per_section
 - Read the entire assembled report
 - Run validation: `python scripts/validate_report.py --report [path]` and
   `python scripts/verify_citations.py --report [path]`
+- If a PDF is generated: `python scripts/verify_pdf_text.py --pdf [path]` must PASS
 - Delete continuation_state.json (cleanup)
 - Deliver per the delivery contract in SKILL.md (in-chat summary + MEDIA: path)
 

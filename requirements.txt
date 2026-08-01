@@ -10,9 +10,14 @@
 # Optional tools (not Python packages):
 #
 # obsidian-headless — Obsidian Sync for the ~/research vault
-#   Invoke:  npx --package=obsidian-headless --yes -- ob sync
-#   Requires Node.js 22+
+#   Invoke:  env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync
+#   Requires Node.js 22+; the env PATH prefix pins ~/.local/bin/node (v22) ahead of
+#   ~/.nix-profile/bin/node (v24) so native modules build/load against the same ABI
 #
 # weasyprint — PDF generation from HTML reports
 #   Install: pip install weasyprint   (user-level; or use uvx)
 #   Used by: reference/html-generation.md (Phase 8 PDF output)
+#
+# verify_pdf_text.py — PDF text-layer verification (scripts/)
+#   Stdlib only. Uses pypdf if installed, else falls back to pdftotext (poppler).
+#   Install one of: pip install pypdf  OR  apt install poppler-utils
