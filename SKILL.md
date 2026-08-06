@@ -117,8 +117,10 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `claims.jsonl` — atomic claim ledger with support status
 - `run_manifest.json` — query, mode, assumptions, provider config
 - HTML (McKinsey style, optional — NEVER auto-opened)
-- PDF (WeasyPrint — **mandatory in gateway sessions** for mobile delivery; must pass
-  `verify_pdf_text.py` before attachment; NEVER auto-opened)
+- PDF (**mandatory in gateway sessions** for mobile delivery; generate via Pandoc→LaTeX
+  when `pandoc` + a LaTeX engine are installed, else WeasyPrint from print-optimized
+  HTML — see `reference/html-generation.md`; must pass `verify_pdf_text.py` before
+  attachment; NEVER auto-opened)
 
 **After completion:** sync the vault once — `cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync` (no backup step). The `env PATH=...` prefix pins Node 22 (`~/.local/bin/node`) so native modules build and load against the same Node version — required on this host.
 
@@ -150,7 +152,11 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
    it passes `verify_pdf_text.py`). Also attach the markdown as a second `MEDIA:` line
    for users who want the source of truth. In TUI/CLI sessions, MEDIA lines are just
    saved paths — the summary + path is the deliverable, and PDF generation remains
-   optional.
+   optional. **In WebUI sessions, MEDIA: paths must point inside the active workspace**
+   (the `[Workspace::v1: ...]` path, typically `~/workspace`) — files outside it fail
+   user-side with "Path not in allowed location". Copy deliverables into the workspace
+   (e.g. `~/workspace/[Topic]_Research_[YYYYMMDD]/`) and reference the copies; the
+   `~/research` originals remain the source of truth.
 3. **Wiki note:** the report lives in the `~/research` vault, so it is already
    searchable/linkable in Obsidian after `ob sync` runs.
 

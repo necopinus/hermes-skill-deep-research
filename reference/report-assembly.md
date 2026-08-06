@@ -156,7 +156,7 @@ All files use the same base name:
 ~/research/[TopicName]_Research_[YYYYMMDD]/
 ├── research_report_[YYYYMMDD]_[slug].md   # primary source of truth (MCP-written)
 ├── research_report_[YYYYMMDD]_[slug].html # optional, McKinsey style
-├── research_report_[YYYYMMDD]_[slug].pdf  # optional, WeasyPrint
+├── research_report_[YYYYMMDD]_[slug].pdf  # optional, Pandoc→LaTeX or WeasyPrint
 ├── bibliography.md                        # standalone ingestion map (MCP-written)
 ├── artifacts/                             # grimoire-raw-ready source extracts (MCP-written)
 │   └── [source-slug].md

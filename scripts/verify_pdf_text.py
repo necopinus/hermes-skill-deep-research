@@ -51,6 +51,38 @@ HARD_MAX_WORD_LEN = 20
 LONG_WORD_WHITELIST = {
     "electroencephalography", "pneumonoultramicroscopicsilicovolcanoconiosis",
 }
+
+# Common English compound words that the fused-pair heuristic would otherwise
+# flag. The heuristic asks "does this token split into two common words?" — for
+# genuine compounds the answer is trivially yes (health+care, under+stand,
+# with+stand, out+come...), so they are whitelisted here rather than treated as
+# extraction defects. Keep lowercase. Add domain/report compounds as they appear.
+COMPOUND_WHITELIST = {
+    # everyday compounds
+    "healthcare", "standalone", "understand", "understanding", "understood",
+    "alongside", "afterthought", "aftermath", "withstand", "withstanding",
+    "overcome", "overcoming", "outcome", "outcomes", "overview", "oversee",
+    "undertake", "undertaking", "nonetheless", "nevertheless", "insofar",
+    "heretofore", "thereafter", "thereunder", "whereafter", "hereunder",
+    "framework", "frameworks", "workplace", "workflow", "workflows",
+    "workforce", "benchmark", "benchmarks", "touchpoint", "touchpoints",
+    "whitepaper", "whitepapers", "playbook", "playbooks", "roadmap", "roadmaps",
+    "cybersecurity", "cybercriminal", "cybercriminals", "cyberattack",
+    "cyberattacks", "cyberthreat", "cyberthreats", "cybercrime", "cybercrimes",
+    "malware", "ransomware", "phishing", "spyware", "adware", "botnet",
+    "firewall", "firewalls", "backdoor", "backdoors", "keylogger", "keyloggers",
+    "spearphishing", "whitelisting", "blacklisting", "greylisting",
+    "threatscape", "attackscape", "riskscape", "infosec", "opsec",
+    # business / research compounds frequent in reports
+    "marketplace", "marketshare", "marketplaces", "shareholding", "stakeholder",
+    "stakeholders", "shareholder", "shareholders", "boardroom", "boardrooms",
+    "greenfield", "brownfield", "flagship", "mainstream", "upstream",
+    "downstream", "midstream", "crossborder", "crossfunctional", "longstanding",
+    "widespread", "wellbeing", "offshore", "onshore", "inhouse", "onboarding",
+    "offboarding", "helpdesk", "databases", "dataset", "datasets", "datapoint",
+    "datapoints", "metadata", "middleware", "firmware", "hardware", "software",
+    "opensource", "closedsource", "singlesource", "multisource", "singlesignon",
+}
 # Compact common-English set for fused-pair detection. Not exhaustive — just enough
 # to recognize that "thatsuperconducting" = "that"+"superconducting" is a fusion.
 COMMON_WORDS = set("""
@@ -153,6 +185,29 @@ def extract_text(pdf_path: Path) -> str:
 
 
 def strip_urls(text: str) -> str:
+    # PDF text extraction can scatter a single bibliography URL across several
+    # lines when the PDF line-wraps a long link at a hyphen/slash AND the layout
+    # engine (pdftotext) emits the wrapped fragments out of reading order
+    # (e.g. "...culture."\n "thinkingthehumanfactor.com/ ..."\n "https://www.re-").
+    # The orphan fragment then trips the fused-word detector. Rejoin scheme and
+    # host fragments before stripping.
+    #
+    # 1. Out-of-order wrap: pdftotext can emit the host fragment BEFORE the
+    #    scheme fragment (e.g. "thinkingthehumanfactor.com/ ..." appears on an
+    #    earlier line than "https://www.re-"). Rejoin by deleting the dangling
+    #    scheme fragment when its host-rest already appeared; then the generic
+    #    URL strip removes the host. Match "scheme+host-prefix-" at end of a
+    #    line that is immediately followed (after a blank line) by a new "[N]"
+    #    bibliography entry or end-of-text — i.e. an orphaned scheme stub.
+    text = re.sub(r"https?://[A-Za-z0-9.-]*?-\s*(?=\n\s*\n\s*\[\d+\])", " ", text)
+    text = re.sub(r"https?://[A-Za-z0-9.-]*?-\s*$", " ", text)
+    # 1b. In-order variant: scheme+partial-host, blank line, then host-rest.
+    text = re.sub(r"(https?://[A-Za-z0-9.-]*?)\s*\n\s*\n\s*([A-Za-z0-9-]+(?:\.[A-Za-z]{2,})+\S*)",
+                  r"\1\2", text)
+    # 2. Rejoin in-order wraps: "https://…re-\nthinkingthehumanfactor.com/".
+    text = re.sub(r"(https?://\S*?)[-/]\s*\n\s*(\S+)", r"\1\2", text)
+    # 3. Collapse any remaining intra-URL newline.
+    text = re.sub(r"(https?://[^\s]+)\n([^\s]+)", r"\1\2", text)
     return re.sub(r"https?://\S+|www\.\S+", " ", text)
 
 
@@ -169,7 +224,7 @@ def looks_fused(token: str) -> bool:
     step otherwise. Accept this trade-off; do NOT loosen to an OR rule.
     """
     low = token.lower()
-    if len(low) < 9 or low in LONG_WORD_WHITELIST:
+    if len(low) < 9 or low in LONG_WORD_WHITELIST or low in COMPOUND_WHITELIST:
         return False
     for i in range(4, len(low) - 3):
         left, right = low[:i], low[i:]
@@ -193,7 +248,7 @@ def check_run_together(text: str, hard_max_len: int = HARD_MAX_WORD_LEN) -> list
     # Signal 1: hard length ceiling
     for token in re.findall(r"[A-Za-z]{" + str(hard_max_len + 1) + r",}", text):
         low = token.lower()
-        if low in LONG_WORD_WHITELIST:
+        if low in LONG_WORD_WHITELIST or low in COMPOUND_WHITELIST:
             continue
         # CamelCase / internal capitals -> legit identifier, skip
         if any(c.isupper() for c in token[1:]):

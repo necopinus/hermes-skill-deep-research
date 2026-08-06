@@ -50,22 +50,31 @@ python scripts/verify_pdf_text.py --pdf [pdf_path]
 **Checks (stdlib-only; uses pypdf if installed, else pdftotext):**
 1. Extractability — text layer exists (not image-only)
 2. Run-together words — fused-word candidates via a hard length ceiling (>20 chars)
-   plus a both-halves-common-word split heuristic
+   plus a both-halves-common-word split heuristic. A built-in compound whitelist
+   (everyday + cybersecurity/report compounds like "healthcare", "standalone",
+   "cybersecurity") is excluded; line-wrapped bibliography URLs are rejoined before
+   stripping so their fragments don't false-positive.
 3. Space density — spaces-per-alpha-char floor catches catastrophic space loss
 4. Encoding artifacts — U+FFFD replacement chars
 5. Ligatures/soft hyphens — warned when pervasive
 
 **On FAIL:**
-- First check the HTML source: remove negative/tight `letter-spacing`, avoid
-  `text-align: justify` with narrow columns, ensure spaces aren't being collapsed
-  by CSS (`white-space` rules)
-- Regenerate the PDF and re-run until clean
+- First, look at the flagged tokens. If they are legitimate compound words
+  (healthcare, standalone, understand, alongside...) or a URL fragment from a
+  line-wrapped bibliography link, the text layer is probably fine — add the compound
+  to `COMPOUND_WHITELIST` in `verify_pdf_text.py` and re-run before assuming a real
+  defect. Do NOT switch PDF engines to chase these flags; WeasyPrint and Pandoc/LaTeX
+  produce the same flags on the same source.
+- If the tokens are genuine fusions ("researchshows", "areclear"), fix the HTML source:
+  remove negative/tight `letter-spacing`, avoid `text-align: justify` with narrow
+  columns, ensure spaces aren't being collapsed by CSS (`white-space` rules).
+- Regenerate the PDF and re-run until clean.
 - `--lenient` only when the report legitimately contains many long technical tokens
-  (document the reason in the methodology appendix)
+  (document the reason in the methodology appendix).
 - Also spot-read one page of `pdftotext [pdf] -` output yourself — the automated
   check is precision-first and can miss fusions where one half is technical vocab
   (e.g. 'thatsuperconducting'). If you see fused words the script missed, treat it
-  as a FAIL and fix the HTML.
+  as a FAIL and fix the source.
 
 **Do NOT deliver a PDF that fails this check** unless the user explicitly accepts
 the text-layer defect (e.g. they only need the visual document).
