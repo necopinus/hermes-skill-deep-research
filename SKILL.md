@@ -11,6 +11,8 @@ Deliver citation-tracked research reports through a structured pipeline with evi
 persistence, source identity management, claim-level verification, and progressive
 context management.
 
+**Before beginning a run:** `cd ~/research && git pull` to ensure the vault is up-to-date.
+
 **Autonomy Principle:** Operate independently. Infer assumptions from context. Only stop
 for critical errors or incomprehensible queries. Surface high-materiality assumptions
 explicitly in the Introduction and Methodology rather than silently defaulting.
@@ -122,7 +124,10 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
   HTML — see `reference/html-generation.md`; must pass `verify_pdf_text.py` before
   attachment; NEVER auto-opened)
 
-**After completion:** sync the vault once — `cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync` (no backup step). The `env PATH=...` prefix pins Node 22 (`~/.local/bin/node`) so native modules build and load against the same Node version — required on this host.
+**After completion:** update the vault remote. From `~/research`: `git pull`, then
+stage the new report directory and commit with
+`git -c user.name="Inaba" -c user.email="inaba@cardboard-iguana.com" -c user.signingKey="/home/exedev/.ssh/id_ed25519" commit -m "<short informative message about the new report>"`,
+then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism now.)
 
 **Quality standards:**
 - 10+ sources, 3+ per major claim (cluster-independent, not just count)
@@ -158,7 +163,7 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
    (e.g. `~/workspace/[Topic]_Research_[YYYYMMDD]/`) and reference the copies; the
    `~/research` originals remain the source of truth.
 3. **Wiki note:** the report lives in the `~/research` vault, so it is already
-   searchable/linkable in Obsidian after `ob sync` runs.
+   searchable/linkable in Obsidian once committed and pushed.
 
 ---
 
