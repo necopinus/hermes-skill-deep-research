@@ -64,6 +64,7 @@ COMPOUND_WHITELIST = {
     "overcome", "overcoming", "outcome", "outcomes", "overview", "oversee",
     "undertake", "undertaking", "nonetheless", "nevertheless", "insofar",
     "heretofore", "thereafter", "thereunder", "whereafter", "hereunder",
+    "elsewhere", "everywhere", "underwent", "anywhere", "somewhere",
     "framework", "frameworks", "workplace", "workflow", "workflows",
     "workforce", "benchmark", "benchmarks", "touchpoint", "touchpoints",
     "whitepaper", "whitepapers", "playbook", "playbooks", "roadmap", "roadmaps",

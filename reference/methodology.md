@@ -439,26 +439,87 @@ abstracts + synthesis section
 
 ---
 
-## Phase 6: CRITIQUE - Quality Assurance
+## Phase 6: CRITIQUE - Quality Assurance + Independent Red Team
 
-**Objective:** Rigorously evaluate research quality
+**Objective:** Rigorously evaluate research quality — structurally, numerically, and
+adversarially — with fresh eyes that have no sunk cost in the research.
 
-**Activities:**
-1. Review for logical consistency
-2. Check citation completeness
-3. Identify gaps or weaknesses
-4. Assess balance and objectivity
-5. Verify claims against sources
-6. Test alternative interpretations
+Phase 6 has two mandatory components in Deep/UltraDeep modes (the Red Team is
+recommended but optional in Standard mode; both are skipped in Quick):
 
-**Red Team Questions:**
-- What's missing?
-- What could be wrong?
-- What alternative explanations exist?
-- What biases might be present?
-- What counterfactuals should be considered?
+### 6A: Red Team — Independent Adversarial Audit (delegate_task, mandatory in Deep/Ultra)
 
-**Persona-Based Critique (Deep/UltraDeep only):**
+Spawn ONE independent red-team subagent via `delegate_task`. It must be a **fresh
+context**: it receives the report path, `sources.jsonl`, `evidence.jsonl`,
+`claims.jsonl`, and (if present) `analysis/` — but NOT the research conversation,
+the outline rationale, or the drafting subagents' abstracts. Its job is to attack the
+report, not to appreciate it.
+
+The red-team subagent audits three axes, in priority order:
+
+**Axis 1 — Citation-usage integrity (the distinguishing check).** Existing validators
+(`verify_citations.py`) catch *confabulated* references — sources that don't exist.
+This axis catches the subtler failure: the source is **real** but is **used
+incorrectly**. For every load-bearing citation [N] (any citation attached to a number,
+a comparative claim, a date, or a causal claim — sample at least 20 or all such
+citations if fewer), the subagent opens the actual source text (from `evidence.jsonl`
+quotes first, falling back to re-fetching the URL) and checks:
+
+- **Attribution mismatch:** the claim says X but the source says X-about-something-else
+  (e.g., report claims "market grew 23%" citing a source whose 23% figure is about a
+  *different segment*, *different year*, or *different geography* than the sentence
+  implies).
+- **Scope drift:** a figure from a narrow study generalized to a broad claim
+  (n=47 survey → "industry-wide adoption is...").
+- **Unit/magnitude errors:** billions vs millions, % vs percentage points, per-user vs
+  total, revenue vs downloads, CAGR vs YoY.
+- **Source-combining errors:** a number in the report was assembled by adding/averaging
+  figures from 2+ sources that measure different things (incommensurate bases, different
+  time windows, overlapping populations double-counted).
+- **Cherry-pick direction:** the cited figure exists in the source but is the most
+  favorable of several the source reports, and the report presents it as representative.
+- **Quote distortion:** a direct quote trimmed so its meaning changes (qualifiers,
+  negations, or uncertainty language dropped).
+
+Every suspected misuse must cite the report line, the source's actual text, and a
+verdict: `misuse` / `imprecise` / `ok`.
+
+**Axis 2 — Numeric and analytical verification.** Every quantitative claim in the
+report must survive recomputation:
+
+- **Recompute all derived numbers.** If the report combines source figures (sums,
+  averages, growth rates, market-size estimates, per-capita conversions), the subagent
+  redoes the arithmetic from the cited source figures — by hand for one-liners, or by
+  re-running the analysis script when the report has an `analysis/` directory (see
+  "Analysis artifacts" in SKILL.md Output Contract). Discrepancies are reported with
+  the recomputed value.
+- **Sanity-check magnitudes.** Flag numbers that are arithmetically consistent but
+  implausible against common reference points (e.g., a market size exceeding the GDP of
+  the country it's measured in).
+- **Date alignment.** Verify compared figures come from comparable time periods; flag
+  "2024 vs 2026" comparisons presented without adjustment.
+- **Statistics hygiene.** Flag percentages of percentages, survivorship-shaped samples,
+  base rates omitted next to relative changes ("50% increase" from 2 to 3 users).
+
+**Axis 3 — Reasoning audit.** Read the full report front-to-back and flag:
+
+- Logical fallacies and unsupported inferential leaps (correlation→causation, anecdote→
+  generalization, appeal-to-authority chains).
+- Alternative explanations the report ignores for its central findings.
+- Internal contradictions between sections (Executive Summary says X, Finding 4 says ¬X).
+- Recommendation/evidence mismatch: recommendations stronger than the findings support.
+- Missing-perspective check: who would dispute this framing, and is their case represented?
+
+**Red-team output contract.** The subagent writes its audit to
+`[report_dir]/redteam_report.md` with one section per axis, each finding formatted as:
+`[SEVERITY: critical|major|minor] report location → issue → source/recomputed evidence →
+suggested fix`. It returns only a 10-line summary (counts by severity, top 3 issues) to
+the main context. **Critical findings block delivery** until resolved or explicitly
+acknowledged in the report's Limitations section; major findings must be fixed or
+acknowledged; minor findings are fixed at main-context discretion.
+
+### 6B: Persona-Based Critique (Deep/UltraDeep only)
+
 Simulate 2-3 specific critic personas relevant to the topic:
 - "Skeptical Practitioner" — Would someone doing this daily trust these findings?
 - "Adversarial Reviewer" — What would a peer reviewer reject?
@@ -466,14 +527,25 @@ Simulate 2-3 specific critic personas relevant to the topic:
 
 For high-stakes topics, delegate one persona to a subagent (`delegate_task`) with the
 draft findings as context — a fresh context with no sunk-cost in the research produces
-sharper criticism.
+sharper criticism. Personas complement the red team: the red team checks *correctness*,
+personas check *credibility and usefulness*.
+
+**Standard critique checklist (all modes that run Phase 6):**
+1. Review for logical consistency
+2. Check citation completeness
+3. Identify gaps or weaknesses
+4. Assess balance and objectivity
+5. Test alternative interpretations
 
 **Critical Gap Loop-Back:**
-If critique identifies a critical knowledge gap (not just a writing issue), return to
-Phase 3 with targeted "delta-queries" before proceeding to Phase 7. Time-box to 3-5
-minutes. This prevents publishing reports with known blind spots.
+If critique identifies a critical knowledge gap (not just a writing or accuracy issue),
+return to Phase 3 with targeted "delta-queries" before proceeding to Phase 7. Time-box
+to 3-5 minutes. This prevents publishing reports with known blind spots. Citation
+misuses and numeric errors found by the red team are NOT loop-backs — they are fixed
+in place in Phase 7.
 
-**Output:** Critique report with improvement recommendations
+**Output:** `redteam_report.md` persisted to the report directory + compact critique
+summary in main context with severity counts
 
 ---
 

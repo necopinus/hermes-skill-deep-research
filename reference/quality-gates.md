@@ -83,9 +83,23 @@ the text-layer defect (e.g. they only need the visual document).
 
 **After generating ANY report, run this loop:**
 
+0. **Deep/UltraDeep modes:** confirm the Phase 6A red-team audit ran and
+   `redteam_report.md` exists in the report directory. All `critical` findings must be
+   resolved (fixed, or explicitly acknowledged in the report's Limitations section
+   with the red-team finding quoted) before proceeding. A missing `redteam_report.md`
+   in Deep/UltraDeep modes means Phase 6 was skipped — go run it; do not paper over
+   this by writing a retroactive summary.
 1. Run `python scripts/validate_report.py --report [path]`
 2. Run `python scripts/verify_citations.py --report [path]`
-3. **If a PDF was generated:** run `python scripts/verify_pdf_text.py --pdf [pdf_path]`
+3. **If a PDF was generated:** run `python scripts/verify_pdf_text.py --pdf [pdf_path]`,
+   then check the PDF's *visual* rendering, not just its text layer. `verify_pdf_text.py`
+   cannot see fused lines: Pandoc→LaTeX collapses single newlines within a paragraph, so
+   (a) consecutive bibliography `[N]` lines fuse into one run-on block, and (b) a numbered
+   or bulleted list immediately following a text line (no blank line) is absorbed into that
+   paragraph. Prevent both: keep a blank line before every list, and separate bibliography
+   entries with a lone `\` line (hard break) or a blank line. Before delivery, run
+   `pdftotext report.pdf - | sed -n '/Bibliography/,+8p'` and eyeball that each entry is on
+   its own line and that recommendation/enumeration lists render as lists.
 4. If ANY fails:
    - Read error output carefully
    - Fix the specific issues identified

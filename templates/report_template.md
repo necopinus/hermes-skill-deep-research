@@ -318,10 +318,15 @@ CITATION TRACKING (CRITICAL):
 <!-- EVERY citation [N] in report body MUST have corresponding entry here        -->
 <!-- If report cites [1]-[25], bibliography MUST contain all 25 complete entries -->
 <!-- Format: [N] Author/Organization (Year). "Title". Publication. URL           -->
+<!-- RENDERING PITFALL (Pandoc→LaTeX PDF): the validator requires entries as     -->
+<!-- `^[N] ` lines, but Pandoc collapses single newlines within a paragraph, so  -->
+<!-- consecutive `[N]` lines FUSE into one run-on block in the PDF. Prevent this -->
+<!-- by separating entries with a hard line break: a lone `\` line between them, -->
+<!-- or a blank line. Verify rendering with `pdftotext` before delivery.         -->
 <!-- ============================================================================ -->
 
 [1] Author Name or Organization ([YEAR]). "Full Title of Article or Paper". Publication Name or Website. https://full-url.com (Retrieved: [CURRENT_DATE])
-
+\
 [2] Second Author ([YEAR]). "Second Article Title". Journal Name, Volume(Issue), pages. https://doi-or-url.com (Retrieved: [CURRENT_DATE])
 
 <!-- Add ALL remaining citations [3] through [N] here -->

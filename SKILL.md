@@ -49,7 +49,7 @@ perspective. Trend = recent 1-2 years.
 | 4 | TRIANGULATE | - | Y | Y | Y | **delegate_task** (subagent synthesis) |
 | 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y | **delegate_task** (subagent analysis) |
 | 5 | SYNTHESIZE | - | Y | Y | Y | **delegate_task** (subagent drafting) |
-| 6 | CRITIQUE | - | - | Y | Y | **delegate_task** (persona subagents) |
+| 6 | CRITIQUE | - | - | Y | Y | **delegate_task** (independent red team + persona subagents) |
 | 7 | REFINE | - | - | Y | Y | **delegate_task** (targeted subagents) |
 | 8 | PACKAGE | Y | Y | Y | Y | **Mixed**: subagents for sections, main for validation |
 
@@ -117,6 +117,18 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `sources.jsonl` — stable source registry with canonical IDs
 - `evidence.jsonl` — append-only evidence store with quotes and locators
 - `claims.jsonl` — atomic claim ledger with support status
+- `redteam_report.md` — independent adversarial audit from Phase 6A (Deep/Ultra modes;
+  persists even when clean — a clean audit is evidence the check ran)
+- `analysis/` — **required whenever the report performs any data or numerical
+  analysis**, omitted otherwise. Contains every script and dataset behind the report's
+  derived numbers so the analysis can be re-run or tweaked later:
+  - `analysis/scripts/` — the actual analysis code (Python/etc.), runnable as-is
+  - `analysis/data/` — input datasets (CSV/JSON), with provenance noted per file
+    (source URL + retrieval date, either in a `data/README.md` or per-file headers)
+  - `analysis/README.md` — how to re-run: dependencies, command lines, and a mapping
+    from each derived number in the report to the script + dataset that produced it.
+    Scripts must read from `analysis/data/` (not re-fetch), so re-runs are
+    reproducible even if sources go stale or offline.
 - `run_manifest.json` — query, mode, assumptions, provider config
 - HTML (McKinsey style, optional — NEVER auto-opened)
 - PDF (**mandatory in gateway sessions** for mobile delivery; generate via Pandoc→LaTeX
