@@ -136,6 +136,29 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
   HTML — see `reference/html-generation.md`; must pass `verify_pdf_text.py` before
   attachment; NEVER auto-opened)
 
+**Markdown linting (REQUIRED before commit):** the `~/research` vault is linted with
+`markdownlint-cli2` and the repo config `.markdownlint-cli2.jsonc`. After all output
+files are written, lint every `.md` file created or modified this run and resolve all
+findings BEFORE the git commit:
+
+```bash
+cd ~/research
+markdownlint-cli2 --no-globs -c ~/research/.markdownlint-cli2.jsonc \
+  "[Topic]_Research_[YYYYMMDD]/research_report_[...].md" \
+  "[Topic]_Research_[YYYYMMDD]/bibliography.md" # ...plus every other .md written
+```
+
+- `--no-globs` is required — without it the config's `globs` are ADDED to the file
+  arguments and you lint the whole vault per invocation.
+- `markdownlint-cli2 --fix` (before `--no-globs`) safely handles the mechanical
+  findings (emphasis style, list markers, trailing spaces) on authored report files;
+  re-run without `--fix` to confirm zero findings. `analysis/` scripts and datasets
+  aren't linted (not markdown); any README.md files under `analysis/` are.
+- The pre-commit hook (`.githooks/pre-commit`) also runs this check but with
+  `|| true` — it reports without blocking. The skill's lint step is the real gate.
+- **Piecemeal policy (2026-08-26):** only new/touched files must be clean. Do NOT
+  reformat existing reports or run whole-vault fixes.
+
 **After completion:** update the vault remote. From `~/research`: `git pull`, then
 stage the new report directory and commit with
 `git -c user.name="Inaba" -c user.email="inaba@cardboard-iguana.com" -c user.signingKey="/home/exedev/.ssh/id_ed25519" commit -m "<short informative message about the new report>"`,
