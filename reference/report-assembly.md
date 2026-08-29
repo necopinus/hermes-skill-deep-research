@@ -37,19 +37,23 @@ Reports that will exceed ~18,000 words total use the continuation protocol
 
 ## Sync
 
-After the final report is written (and after any continuation finalizes), trigger an
-Obsidian Sync push:
+After the final report is written (and after any continuation finalizes), sync the
+vault via git:
 
 ```bash
-cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync
+cd ~/research && git pull
+git -c user.name="Inaba" -c user.email="inaba@cardboard-iguana.com" \
+  -c user.signingKey="/home/exedev/.ssh/id_ed25519" \
+  add "[Topic]_Research_[YYYYMMDD]/" && \
+git -c user.name="Inaba" -c user.email="inaba@cardboard-iguana.com" \
+  -c user.signingKey="/home/exedev/.ssh/id_ed25519" \
+  commit -m "<short informative message about the new report>" && \
+git push
 ```
 
-Run once at the end — not per section. `ob` requires Node 22+ and is always invoked
-via `env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob`
-(no global install). The `env PATH=...` prefix is REQUIRED on this host: it pins
-Node 22 (`~/.local/bin/node`, modules 127) ahead of the nix-profile Node 24, so
-native modules (better-sqlite3) build against and load from the same Node ABI.
-**No backup step** — the vault itself is the canonical store, synced remotely.
+Run once at the end — not per section. The `ob sync` flow is deprecated; git is the
+sync mechanism. **No backup step** — the vault itself is the canonical store, synced
+remotely via git.
 
 ---
 

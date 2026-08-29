@@ -30,14 +30,13 @@ Reports are written to the `~/research` Obsidian vault via the `obsidian-researc
 MCP server. If that vault/server isn't configured, fall back to plain file writes
 (the skill degrades gracefully, but the MCP route is the intended path).
 
-### Optional: obsidian-headless (vault sync)
+### Vault sync (git)
 
-To push the research vault to Obsidian Sync after a report completes:
+The research vault syncs via git. After a report completes:
 
 ```bash
-# Requires Node.js 22+ — invoked via npx, no global install
-# The env PATH prefix pins Node 22 (~/.local/bin/node) ahead of nix Node 24 (ABI match)
-cd ~/research && env PATH="$HOME/.local/bin:$PATH" npx --package=obsidian-headless --yes -- ob sync
+cd ~/research && git pull
+git add "[Topic]_Research_[YYYYMMDD]/" && git commit -m "<message>" && git push
 ```
 
 ### Optional: WeasyPrint (PDF output)
@@ -61,9 +60,9 @@ deep research in ultradeep mode: compare PostgreSQL vs Supabase for our stack
 | Mode | Phases | Duration | Best For |
 |------|--------|----------|----------|
 | Quick | 3 | 2-5 min | Initial exploration |
-| Standard | 6 | 5-10 min | Most research questions |
-| Deep | 8 | 10-20 min | Complex topics, critical decisions |
-| UltraDeep | 8+ | 20-45 min | Comprehensive reports, maximum rigor |
+| Standard | 7 | 5-15 min | Most research questions |
+| Deep | 8 | 15-25 min | Complex topics, critical decisions |
+| UltraDeep | 8+ | 25-50 min | Comprehensive reports, maximum rigor |
 
 ## Pipeline
 
@@ -81,7 +80,7 @@ Key features:
 - **Delegated synthesis**: per-finding section-drafting subagents write directly to the report via MCP; main context writes only the cross-cutting Synthesis section
 - **First Finish Search**: Adaptive quality thresholds by mode
 - **Critique loop-back**: Phase 6 can return to Phase 3 with delta-queries if critical gaps found
-- **Multi-persona red teaming**: Skeptical Practitioner, Adversarial Reviewer, Implementation Engineer (Deep/UltraDeep)
+- **Mandatory adversarial review**: independent red team (3-axis audit) + multi-persona critiques, all modes, with fix → re-audit loop (up to 3 passes)
 - **Disk-persisted citations**: `sources.jsonl` survives context compaction and continuation sessions
 
 ## Output
@@ -141,7 +140,7 @@ deep-research/
 │   ├── citation_manager.py           # Citation tracking
 │   ├── md_to_html.py                 # Markdown to HTML converter
 │   ├── verify_html.py                # HTML verification
-│   └── research_engine.py            # State scaffold (not a runtime orchestrator)
+│   └── evidence_store.py             # Evidence persistence
 └── tests/
     └── fixtures/                     # Test report fixtures
 ```

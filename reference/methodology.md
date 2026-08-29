@@ -250,6 +250,14 @@ Proceed to Phase 4 when FIRST threshold reached:
 - `delegate_task` for parallel deep-dive subagents
 - `execute_code` for computational analysis (when needed)
 
+**Reproducible analysis rule:** Whenever the report derives numbers from data —
+statistical summaries, growth-rate calculations, market-size estimates, cross-source
+comparisons — write a short Python script to do the computation and save it to
+`analysis/scripts/`, with input data in `analysis/data/`. Do NOT do arithmetic in your
+head or in prose; the script IS the analysis. This makes every derived number
+reproducible and auditable by the Phase 6 red team. Reserve model reasoning for
+interpretation, narrative, and judgment calls — the things models are actually good for.
+
 **Output:** Organized information repository with source tracking, credibility scores,
 and coverage map
 
@@ -444,10 +452,10 @@ abstracts + synthesis section
 **Objective:** Rigorously evaluate research quality — structurally, numerically, and
 adversarially — with fresh eyes that have no sunk cost in the research.
 
-Phase 6 has two mandatory components in Deep/UltraDeep modes (the Red Team is
-recommended but optional in Standard mode; both are skipped in Quick):
+Phase 6 is **mandatory in all modes** (Standard, Deep, and UltraDeep; skipped only in
+Quick mode). Both the Red Team (6A) and Persona Critiques (6B) are required.
 
-### 6A: Red Team — Independent Adversarial Audit (delegate_task, mandatory in Deep/Ultra)
+### 6A: Red Team — Independent Adversarial Audit (delegate_task, mandatory)
 
 Spawn ONE independent red-team subagent via `delegate_task`. It must be a **fresh
 context**: it receives the report path, `sources.jsonl`, `evidence.jsonl`,
@@ -518,19 +526,35 @@ the main context. **Critical findings block delivery** until resolved or explici
 acknowledged in the report's Limitations section; major findings must be fixed or
 acknowledged; minor findings are fixed at main-context discretion.
 
-### 6B: Persona-Based Critique (Deep/UltraDeep only)
+**Red-team loop (mandatory).** After the red-team report is written, the main context
+fixes (or delegates fixes for) every `critical` and `major` finding, then re-runs the
+red-team subagent on the updated report. This fix → re-audit cycle repeats until either:
+
+1. The red team returns zero `critical` and zero `major` findings, **or**
+2. Three red-team passes have been completed (the initial pass plus two re-audits),
+   whichever comes first.
+
+Each re-audit is a fresh subagent (no memory of prior passes). If the third pass still
+finds critical/major issues, those issues are documented in the report's Limitations
+section and the loop terminates — do not keep iterating beyond three passes. The
+`redteam_report.md` file is overwritten on each pass; the final version reflects the
+last audit's findings.
+
+### 6B: Persona-Based Critique (mandatory, all modes)
 
 Simulate 2-3 specific critic personas relevant to the topic:
 - "Skeptical Practitioner" — Would someone doing this daily trust these findings?
 - "Adversarial Reviewer" — What would a peer reviewer reject?
 - "Implementation Engineer" — Can these recommendations actually be executed?
 
-For high-stakes topics, delegate one persona to a subagent (`delegate_task`) with the
-draft findings as context — a fresh context with no sunk-cost in the research produces
-sharper criticism. Personas complement the red team: the red team checks *correctness*,
-personas check *credibility and usefulness*.
+**Every persona critique is delegated to a context-restricted subagent**
+(`delegate_task`). Each persona gets a fresh context containing only the report path
+and the persona brief — NOT the research conversation, the outline rationale, the
+drafting subagents' abstracts, or the red-team report. This mirrors scientific peer
+review: the reviewer sees the paper, not the lab notebook. Personas complement the red
+team: the red team checks *correctness*, personas check *credibility and usefulness*.
 
-**Standard critique checklist (all modes that run Phase 6):**
+**Standard critique checklist (all modes — Phase 6 is mandatory):**
 1. Review for logical consistency
 2. Check citation completeness
 3. Identify gaps or weaknesses

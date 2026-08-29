@@ -49,8 +49,8 @@ perspective. Trend = recent 1-2 years.
 | 4 | TRIANGULATE | - | Y | Y | Y | **delegate_task** (subagent synthesis) |
 | 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y | **delegate_task** (subagent analysis) |
 | 5 | SYNTHESIZE | - | Y | Y | Y | **delegate_task** (subagent drafting) |
-| 6 | CRITIQUE | - | - | Y | Y | **delegate_task** (independent red team + persona subagents) |
-| 7 | REFINE | - | - | Y | Y | **delegate_task** (targeted subagents) |
+| 6 | CRITIQUE | - | Y | Y | Y | **delegate_task** (independent red team + persona subagents) |
+| 7 | REFINE | - | Y | Y | Y | **delegate_task** (targeted subagents) |
 | 8 | PACKAGE | Y | Y | Y | Y | **Mixed**: subagents for sections, main for validation |
 
 **Delegation principle:** Phases 3-8 are delegated to subagents whenever they involve
@@ -95,6 +95,10 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `python scripts/verify_citations.py --report [path]`
 - `python scripts/verify_pdf_text.py --pdf [path]` (mandatory when a PDF is generated)
 - `python scripts/md_to_html.py [markdown_path]`
+- `python scripts/citation_manager.py` — source registration and citation numbering
+- `python scripts/evidence_store.py` — evidence persistence (add/query)
+- `python scripts/source_evaluator.py` — source credibility scoring
+- `python scripts/verify_html.py --html [path] --md [path]` — HTML verification
 
 ---
 
@@ -117,7 +121,7 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `sources.jsonl` — stable source registry with canonical IDs
 - `evidence.jsonl` — append-only evidence store with quotes and locators
 - `claims.jsonl` — atomic claim ledger with support status
-- `redteam_report.md` — independent adversarial audit from Phase 6A (Deep/Ultra modes;
+- `redteam_report.md` — independent adversarial audit from Phase 6A (all modes;
   persists even when clean — a clean audit is evidence the check ran)
 - `analysis/` — **required whenever the report performs any data or numerical
   analysis**, omitted otherwise. Contains every script and dataset behind the report's
@@ -138,12 +142,16 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 
 **Markdown linting (REQUIRED before commit):** the `~/research` vault is linted with
 `markdownlint-cli2` and the repo config `.markdownlint-cli2.jsonc`. After all output
-files are written, lint every `.md` file created or modified this run and resolve all
-findings BEFORE the git commit:
+files are written, lint every `.md` file created or modified this run and resolve ALL
+findings BEFORE the git commit — **including pre-existing findings in files you
+touched** (e.g. when updating an older report's bibliography or a shared note).
+Touching a file means adopting its lint debt: that is how the vault gets cleaned
+piecemeal. Don't leave a finding because "it was already there", and don't keep a
+new file consistent with the vault's old convention violations.
 
 ```bash
 cd ~/research
-markdownlint-cli2 --no-globs -c ~/research/.markdownlint-cli2.jsonc \
+markdownlint-cli2 --no-globs --config ~/research/.markdownlint-cli2.jsonc \
   "[Topic]_Research_[YYYYMMDD]/research_report_[...].md" \
   "[Topic]_Research_[YYYYMMDD]/bibliography.md" # ...plus every other .md written
 ```
@@ -156,8 +164,11 @@ markdownlint-cli2 --no-globs -c ~/research/.markdownlint-cli2.jsonc \
   aren't linted (not markdown); any README.md files under `analysis/` are.
 - The pre-commit hook (`.githooks/pre-commit`) also runs this check but with
   `|| true` — it reports without blocking. The skill's lint step is the real gate.
-- **Piecemeal policy (2026-08-26):** only new/touched files must be clean. Do NOT
-  reformat existing reports or run whole-vault fixes.
+- **Piecemeal policy (updated 2026-08-27):** fix everything the linter surfaces in
+  every file you create or touch — new findings and pre-existing ones alike. Do NOT
+  reformat untouched files en masse, and do NOT run whole-vault fixes. If a finding
+  reveals a genuine config/house-style mismatch, fix the file AND flag the mismatch
+  for Nathan so the config can be revisited.
 
 **After completion:** update the vault remote. From `~/research`: `git pull`, then
 stage the new report directory and commit with
