@@ -29,7 +29,9 @@ Request Analysis
 
 Mode Selection
 +-- Initial exploration --> quick (3 phases, 2-5 min)
-+-- Standard research --> standard (6 phases, 5-10 min) [DEFAULT]
+|   +-- Decision-critical? --> ASK: include Phase 6 critique? (default: yes)
+|   +-- Otherwise --> skip Phase 6
++-- Standard research --> standard (7 phases, 5-15 min) [DEFAULT]
 +-- Critical decision --> deep (8 phases, 10-20 min)
 +-- Comprehensive review --> ultradeep (8+ phases, 20-45 min)
 ```
@@ -49,7 +51,7 @@ perspective. Trend = recent 1-2 years.
 | 4 | TRIANGULATE | - | Y | Y | Y | **delegate_task** (subagent synthesis) |
 | 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y | **delegate_task** (subagent analysis) |
 | 5 | SYNTHESIZE | - | Y | Y | Y | **delegate_task** (subagent drafting) |
-| 6 | CRITIQUE | - | Y | Y | Y | **delegate_task** (independent red team + persona subagents) |
+| 6 | CRITIQUE | † | Y | Y | Y | **delegate_task** (independent red team + persona subagents) |
 | 7 | REFINE | - | Y | Y | Y | **delegate_task** (targeted subagents) |
 | 8 | PACKAGE | Y | Y | Y | Y | **Mixed**: subagents for sections, main for validation |
 
@@ -58,6 +60,9 @@ multi-step generation, analysis, or drafting. The main context handles only:
 - Research framing (Phase 1) and strategy (Phase 2)
 - Final validation and delivery decisions
 - Cross-phase coordination and gap-filling when subagents return incomplete work
+
+**† Quick mode Phase 6:** Skipped by default. If the research is decision-critical,
+ask the user whether to include a critique pass (default suggestion: yes).
 
 **Note:** Phases 3-5 operate as an evidence loop per section (retrieve -> evidence
 store -> refine outline -> draft -> verify claims -> delta-retrieve if needed), not as
@@ -99,6 +104,12 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `python scripts/evidence_store.py` — evidence persistence (add/query)
 - `python scripts/source_evaluator.py` — source credibility scoring
 - `python scripts/verify_html.py --html [path] --md [path]` — HTML verification
+
+**Schemas** (structural contracts for the pipeline's JSONL/JSON files):
+- `schemas/source.schema.json` — `sources.jsonl` entries
+- `schemas/evidence.schema.json` — `evidence.jsonl` entries
+- `schemas/claim.schema.json` — `claims.jsonl` entries
+- `schemas/run_manifest.schema.json` — `run_manifest.json`
 
 ---
 

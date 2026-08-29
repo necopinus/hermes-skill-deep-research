@@ -156,7 +156,10 @@ parallel search batch returns, spawn a `delegate_task` subagent to:
 1. Score sources with `source_evaluator.py`
 2. Extract and persist evidence with `evidence_store.py`
 3. Register sources with `citation_manager.py`
-4. Return a structured gap analysis: what was found, what's missing, what needs
+4. Extract atomic claims from the evidence and write them to `claims.jsonl`
+   (structure: `schemas/claim.schema.json` — `claim_id`, `section_id`, `text`,
+   `claim_type`, `cited_source_ids`, `evidence_ids`, `support_status: "unverified"`)
+5. Return a structured gap analysis: what was found, what's missing, what needs
    targeted follow-up
 
 This keeps the main context free of raw search results and full-text extraction.
@@ -268,7 +271,10 @@ and coverage map
 **Objective:** Validate information across multiple independent sources
 
 **Execution: delegated to a subagent.** The main context passes the evidence store
-path and claim candidates; the subagent returns a verification report.
+path and claim candidates; the subagent returns a verification report. Claims were
+pre-populated by the retrieval subagent (Phase 3) with `support_status: "unverified"`;
+the triangulation subagent updates them to `supported`, `partial`, `unsupported`, or
+`needs_review` based on cross-referencing.
 
 **Activities (subagent):**
 1. Identify claims requiring verification (scan `evidence.jsonl` for clusters)
@@ -423,6 +429,9 @@ phase — delegate it aggressively. The main context coordinates; subagents draf
                   Claims: claims.jsonl. Append to report via obsidian-research MCP:
                   path=[folder]/research_report_[...].md, mode=append.
                   Style: prose-first >=80%, cite [N] per factual claim, no placeholders.
+                  If your section derives numbers from data (sums, averages, growth rates,
+                  comparisons), write the computation as a script to analysis/scripts/
+                  and save input data to analysis/data/ — do NOT do arithmetic in prose.
                   Return a 3-sentence abstract of the section."},
      {"goal": "Draft Finding 2 ...", "context": "..."},
      {"goal": "Draft Finding 3 ...", "context": "..."}
@@ -452,8 +461,9 @@ abstracts + synthesis section
 **Objective:** Rigorously evaluate research quality — structurally, numerically, and
 adversarially — with fresh eyes that have no sunk cost in the research.
 
-Phase 6 is **mandatory in all modes** (Standard, Deep, and UltraDeep; skipped only in
-Quick mode). Both the Red Team (6A) and Persona Critiques (6B) are required.
+Phase 6 is **mandatory in Standard, Deep, and UltraDeep modes**. In Quick mode it is
+skipped by default, but if the research is decision-critical the user should be asked
+whether to include a critique pass (default suggestion: yes).
 
 ### 6A: Red Team — Independent Adversarial Audit (delegate_task, mandatory)
 
@@ -542,10 +552,15 @@ last audit's findings.
 
 ### 6B: Persona-Based Critique (mandatory, all modes)
 
-Simulate 2-3 specific critic personas relevant to the topic:
+Simulate 2-3 critic personas relevant to the topic. Choose personas that match the
+report's domain — the three defaults below are starting points, not mandates:
+
 - "Skeptical Practitioner" — Would someone doing this daily trust these findings?
 - "Adversarial Reviewer" — What would a peer reviewer reject?
 - "Implementation Engineer" — Can these recommendations actually be executed?
+- "Threat Modeler" — What attack surfaces or failure modes does this report ignore?
+- "Domain Historian" — Has this been tried before? What happened?
+- "Regulatory/Compliance Auditor" — What legal or policy constraints does this miss?
 
 **Every persona critique is delegated to a context-restricted subagent**
 (`delegate_task`). Each persona gets a fresh context containing only the report path

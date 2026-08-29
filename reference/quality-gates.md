@@ -83,12 +83,12 @@ the text-layer defect (e.g. they only need the visual document).
 
 **After generating ANY report, run this loop:**
 
-0. **All modes:** confirm the Phase 6A red-team audit ran and
+0. **Standard/Deep/UltraDeep modes:** confirm the Phase 6A red-team audit ran and
    `redteam_report.md` exists in the report directory. All `critical` findings must be
    resolved (fixed, or explicitly acknowledged in the report's Limitations section
    with the red-team finding quoted) before proceeding. A missing `redteam_report.md`
-   in any mode means Phase 6 was skipped — go run it; do not paper over
-   this by writing a retroactive summary.
+   in these modes means Phase 6 was skipped — go run it; do not paper over
+   this by writing a retroactive summary. (Quick mode: only if the user opted in.)
 1. Run `python scripts/validate_report.py --report [path]`
 2. Run `python scripts/verify_citations.py --report [path]`
 3. **If a PDF was generated:** run `python scripts/verify_pdf_text.py --pdf [pdf_path]`,
