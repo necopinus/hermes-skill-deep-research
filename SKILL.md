@@ -146,10 +146,13 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
     reproducible even if sources go stale or offline.
 - `run_manifest.json` — query, mode, assumptions, provider config
 - HTML (McKinsey style, optional — NEVER auto-opened)
-- PDF (**mandatory in gateway sessions** for mobile delivery; generate via Pandoc→LaTeX
-  when `pandoc` + a LaTeX engine are installed, else WeasyPrint from print-optimized
-  HTML — see `reference/html-generation.md`; must pass `verify_pdf_text.py` before
-  attachment; NEVER auto-opened)
+- PDF (**REQUIRED dual output in every session type — not just gateway**; the Markdown
+  report is the source of truth and the PDF is the portable/print deliverable, and the
+  pair are produced together by default. Generate via Pandoc→LaTeX when `pandoc` + a
+  LaTeX engine are installed, else WeasyPrint from print-optimized HTML — see
+  `reference/html-generation.md`. Must pass `verify_pdf_text.py` before attachment;
+  NEVER auto-opened. Do not treat PDF as a per-surface afterthought — it has been
+  missed repeatedly; generate it as part of Phase 8 packaging, every run.)
 
 **Markdown linting (REQUIRED before commit):** the `~/research` vault is linted with
 `markdownlint-cli2` and the repo config `.markdownlint-cli2.jsonc`. After all output
@@ -208,14 +211,15 @@ then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism
    MEDIA:/home/exedev/research/[Topic]_Research_[YYYYMMDD]/research_report_[...].pdf
    ```
 
-   On Discord/Telegram this arrives as a file upload. **In gateway sessions (Discord,
-   Telegram), ALWAYS generate the PDF** — it is the mobile-friendly artifact and the
-   primary delivery format for users on the move — and attach it via `MEDIA:` (after
-   it passes `verify_pdf_text.py`). Also attach the markdown as a second `MEDIA:` line
-   for users who want the source of truth. In TUI/CLI sessions, MEDIA lines are just
-   saved paths — the summary + path is the deliverable, and PDF generation remains
-   optional. **In WebUI sessions, MEDIA: paths must point inside the active workspace**
-   (the `[Workspace::v1: ...]` path, typically `~/workspace`) — files outside it fail
+   On Discord/Telegram this arrives as a file upload. **Generate the PDF in every
+   session type** — gateway (Discord/Telegram), WebUI, and TUI/CLI alike — because it
+   is the portable deliverable and has been missed when treated as gateway-only. Attach
+   it via `MEDIA:` (after it passes `verify_pdf_text.py`), and also attach the markdown
+   as a second `MEDIA:` line for users who want the source of truth. In TUI/CLI
+   sessions, MEDIA lines are just saved paths — the summary + paths are the
+   deliverable, but the PDF is still generated, not skipped. **In WebUI sessions,
+   MEDIA: paths must point inside the active workspace** (the `[Workspace::v1: ...]`
+   path, typically `~/workspace`) — files outside it fail
    user-side with "Path not in allowed location". Copy deliverables into the workspace
    (e.g. `~/workspace/[Topic]_Research_[YYYYMMDD]/`) and reference the copies; the
    `~/research` originals remain the source of truth.
