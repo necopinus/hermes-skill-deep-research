@@ -100,18 +100,20 @@ mcp__kagi__kagi_search_fetch(query="...", limit=10)
   in the same call — saves a round trip.
 - For deep-dives on a specific URL: `mcp__kagi__kagi_extract(url=...)`.
 
-#### Rung 3: Exa MCP — semantic/neural search and gap-filling
+#### Rung 3: Exa via built-in `web_search` — semantic/neural search and gap-filling
 
 ```
-mcp__exa__web_search_exa(query="<semantically rich description of ideal page>", numResults=10)
+web_search(query="<semantically rich description of ideal page>", limit=10)
 ```
 
+- Exa is the configured `web.backend` (plugins/web/exa), so the native `web_search`
+  and `web_extract` tools reach Exa directly — there is no `mcp__exa__*` server.
 - Exa's strength is semantic retrieval: describe the *ideal page*, not keywords
   ("blog post comparing X and Y performance", not "X vs Y").
 - Use alongside Kagi for coverage, and specifically to fill gaps Kagi left:
   alternative perspectives, academic treatments, older foundational sources.
-- For full content of known URLs: `mcp__exa__web_fetch_exa(urls=[...])` (batch up to
-  several URLs in one call).
+- For full content of known URLs: `web_extract(urls=[...])` (batches several URLs
+  in one call).
 
 **Escalation guidance:** Rungs 1+2 are mandatory for Standard mode and above. Rung 3 is
 mandatory for Deep/UltraDeep and recommended for Standard when Kagi coverage is thin or
@@ -126,8 +128,8 @@ angles:
 2. **Technical details (keyword)** - Specific terms, APIs, implementations (Kagi)
 3. **Recent developments (date-filtered)** - Last 12-18 months (Kagi `time_relative` or
    `after`, using the date from Step 0)
-4. **Academic sources** - Papers, formal analysis (Kagi `lens_id: 2`, Exa with
-   paper-oriented queries, or the arxiv skill)
+4. **Academic sources** - Papers, formal analysis (Kagi `lens_id: 2`, Exa via
+   `web_search` with paper-oriented queries, or the arxiv skill)
 5. **Alternative perspectives** - Competing approaches, criticisms
 6. **Statistical/data sources** - Quantitative evidence, benchmarks
 7. **Industry analysis** - Commercial applications, market trends
@@ -145,8 +147,8 @@ Example (Standard mode, after grimoire sweep):
 - mcp__kagi__kagi_search_fetch(query="quantum computing limitations challenges", limit=10)
 - mcp__kagi__kagi_search_fetch(query="quantum computing commercial applications", workflow="news", time_relative="month", limit=10)
 - mcp__kagi__kagi_search_fetch(query="quantum error correction", lens_id="2", limit=10)
-- mcp__exa__web_search_exa(query="technical deep-dive explaining why quantum error correction is hard", numResults=10)
-- mcp__exa__web_search_exa(query="critical analysis of quantum computing hype and failure modes", numResults=10)
+- web_search(query="technical deep-dive explaining why quantum error correction is hard", limit=10)
+- web_search(query="critical analysis of quantum computing hype and failure modes", limit=10)
 ```
 
 **Search execution:** The main context issues the search tool calls directly (they are

@@ -75,7 +75,9 @@ strict sequential gates. Each loop iteration is a candidate for delegation.
 1. **`~/grimoire`** — `mcp__obsidian_grimoire__search_notes` first, always. Trace hits
    to their original `source_url:` for citations.
 2. **Kagi MCP** — `mcp__kagi__kagi_search_fetch` is the primary web search.
-3. **Exa MCP** — `mcp__exa__web_search_exa` for semantic search and gap-filling.
+3. **Exa (built-in `web_search`)** — semantic search and gap-filling. Exa is the
+   configured `web.backend`, so the native `web_search` / `web_extract` tools ARE
+   Exa — no MCP server involved.
 
 Details in [methodology.md](./reference/methodology.md) Phase 3.
 
