@@ -173,6 +173,16 @@ Before considering section complete:
 | "potentially beneficial" | "increased biomarker X by 15%" |
 | "* Market: $2.4B" | "The market reached $2.4 billion in 2023 [1]." |
 
+### AI-Slop Pass (REQUIRED)
+
+Drafting and refinement subagents write to the `no-ai-slop` skill's standard (load it
+with `skill_view(name='no-ai-slop')`). Before delivery, run a final editing pass over
+the report against its pattern list: binary contrasts, throat-clearing openers,
+faux-insight setups, colon reveals, superficial `-ing` analysis, importance puffery,
+weasel attribution, synonym cycling, dramatic fragments, fake-profound kickers, and
+summary-recap endings. Cut them on sight. Keep all technical content, numbers, and
+citations intact — the pass edits prose, never evidence.
+
 ---
 
 ## Source Attribution Standards

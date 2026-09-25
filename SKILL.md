@@ -197,6 +197,10 @@ then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism
 - Claim-support verification mandatory: no unsupported factual claims pass delivery
 - No placeholders, no fabricated citations
 - Prose-first (>=80%), bullets sparingly
+- Slop-free prose: all report prose follows the `no-ai-slop` skill's editing rules
+  (load it with `skill_view(name='no-ai-slop')`). Drafting subagents write to its
+  standard, and Phase 7/8 includes a final editing pass against its `eval.md`
+  checks (see reference/quality-gates.md, "AI-Slop Pass").
 
 ---
 
