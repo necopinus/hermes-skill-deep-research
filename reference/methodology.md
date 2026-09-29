@@ -1,10 +1,3 @@
-> **Note (2026-09-29):** Phases 3-6 below are the LEGACY flow, superseded by the
-> claims-registry pipeline — see [claims-pipeline.md](./claims-pipeline.md). In
-> particular, `claims.jsonl` now holds the source-derived claims register
-> (schema `schemas/claim.schema.json`, C-numbered ids, lifecycle states), not
-> the post-hoc extraction ledger described below (legacy schema:
-> `schemas/extracted_claim.schema.json`).
-
 # Deep Research Methodology: 8-Phase Pipeline
 
 ## Overview
@@ -12,6 +5,12 @@
 This document contains the detailed methodology for conducting deep research. The 8 phases
 represent a comprehensive approach to gathering, verifying, and synthesizing information
 from multiple sources.
+
+**The claims flow is governed by [claims-pipeline.md](./claims-pipeline.md)** (source
+scouting → deep-read claim extraction → adversarial claim checking → coverage check →
+claim-grounded drafting → red team → mechanical conversion). This document provides the
+phase-level mechanics those rounds build on: the search ladder, subagent architecture,
+red-team audit axes, and packaging steps. Where the two disagree, claims-pipeline.md wins.
 
 ---
 
@@ -55,7 +54,8 @@ optimal strategy.
 ## Phase 3: RETRIEVE - Parallel Information Gathering
 
 **Objective:** Systematically collect information from multiple sources using parallel
-execution for maximum speed
+execution for maximum speed. In claims-pipeline terms this covers R1 (source scouting)
+and R2 (deep-read claim extraction).
 
 **CRITICAL: Execute ALL searches in parallel using a single message with multiple tool
 calls.** Hermes runs independent tool calls in the same turn concurrently — batch them.
@@ -163,42 +163,35 @@ cheap, parallel, and stateless), but **result processing is delegated**: after t
 parallel search batch returns, spawn a `delegate_task` subagent to:
 
 1. Score sources with `source_evaluator.py`
-2. Extract and persist evidence with `evidence_store.py`
-3. Register sources with `citation_manager.py`
-4. Extract atomic claims from the evidence and write them to `claims.jsonl`
-   (structure: `schemas/claim.schema.json` — `claim_id`, `section_id`, `text`,
-   `claim_type`, `cited_source_ids`, `evidence_ids`, `support_status: "unverified"`)
-5. Return a structured gap analysis: what was found, what's missing, what needs
+2. Register sources with `citation_manager.py` — including a `provenance_tier`
+   (primary / official-tracker / secondary / aggregator / transcription; see
+   claims-pipeline.md R1)
+3. Extract and persist evidence with `evidence_store.py`
+4. Return a structured gap analysis: what was found, what's missing, what needs
    targeted follow-up
 
 This keeps the main context free of raw search results and full-text extraction.
 
-**Subagent output format for retrieval:**
+**Deep-read subagents (claims-pipeline R2):** For registered sources that merit full
+reads, spawn `delegate_task` subagents in batches of 5-8 sources (batch cap is provider-
+driven — fetch-heavy delegated runs have died ~20 minutes in). Each receives its source
+subset plus the outline-derived interest instructions, and appends **candidate** claims
+to `claims.jsonl` (structure: `schemas/claim.schema.json`). Subagents do NOT share your
+conversation context — pass everything they need in the `context` field, and require
+them to return URLs/paths you can verify yourself.
+
+**Subagent claim output format:**
 
 ```json
-{"claim": "specific claim text", "evidence_quote": "exact quote from source",
- "source_url": "https://...", "source_title": "...", "confidence": 0.85}
+{"statement": "one checkable fact or implication",
+ "kind": "fact | implication | status | quote",
+ "source_id": "...", "source_url": "https://...",
+ "evidence_quote": "VERBATIM passage from the source (mandatory)",
+ "fetched_at": "ISO-8601"}
 ```
 
-This prevents synthesis fatigue when merging results from multiple agents. Note that
-subagents do NOT share your conversation context — pass everything they need in the
-`context` field, and require them to return URLs/paths you can verify yourself.
-
-**Deep-dive subagents (targeted full-text extraction):**
-
-For sources that need full-text analysis (PDFs, long documentation, repos), spawn
-dedicated `delegate_task` subagents (batch mode, up to 3 concurrent):
-
-```
-delegate_task(tasks=[
-  {"goal": "Fetch and extract [URLs] via kagi_extract/exa fetch; persist evidence with evidence_store.py",
-   "context": "Return structured evidence JSON. Research question: ... Output dir: ~/research/[folder]"},
-  {"goal": "...", "context": "..."}
-])
-```
-
-Subagents write directly to `evidence.jsonl`/`sources.jsonl` — the main context only
-consumes their gap-analysis summaries.
+The `evidence_quote` is the error-killer: a verbatim quote cannot silently drift the
+way a paraphrase does (units, magnitudes, qualifiers).
 
 **Step 3: Collect and organize results**
 
@@ -223,7 +216,7 @@ python scripts/evidence_store.py add --json '{"source_id": "...", "quote": "exac
 
 Evidence must not live only in model context — it must be persisted to `evidence.jsonl`
 before synthesis begins. This survives context compaction and gives continuation
-subagents and claim-support verification the full evidence trail.
+subagents and claim checking the full evidence trail.
 
 ### First Finish Search (FFS) Pattern
 
@@ -237,6 +230,7 @@ Proceed to Phase 4 when FIRST threshold reached:
 - **UltraDeep mode:** 30+ sources with avg credibility >75/100 OR 15 minutes elapsed
 
 **Continue background searches:**
+
 - If threshold reached early, continue remaining parallel searches in background
 - Additional sources used in Phase 5 (SYNTHESIZE) for depth and diversity
 - Allows fast progression without sacrificing thoroughness
@@ -256,9 +250,8 @@ Proceed to Phase 4 when FIRST threshold reached:
 
 **Techniques:**
 - Grimoire search first (local, free, pre-vetted)
-- Kagi MCP for web search (primary), Exa MCP for semantic/gap-filling
-- Kagi extract / Exa fetch for full page content
-- `web_search` (built-in) as last-resort fallback if both MCPs fail
+- Kagi MCP for web search (primary), Exa via `web_search` for semantic/gap-filling
+- Kagi extract / `web_extract` for full page content
 - `delegate_task` for parallel deep-dive subagents
 - `execute_code` for computational analysis (when needed)
 
@@ -270,48 +263,34 @@ head or in prose; the script IS the analysis. This makes every derived number
 reproducible and auditable by the Phase 6 red team. Reserve model reasoning for
 interpretation, narrative, and judgment calls — the things models are actually good for.
 
-**Output:** Organized information repository with source tracking, credibility scores,
-and coverage map
+**Output:** Registered sources with provenance tiers, persisted evidence, candidate
+claims in `claims.jsonl`, and a coverage map
 
 ---
 
-## Phase 4: TRIANGULATE - Cross-Reference Verification
+## Phase 4: TRIANGULATE - Adversarial Claim Checking
 
-**Objective:** Validate information across multiple independent sources
+**Objective:** Every candidate claim independently verified against its primary source
+before it may appear in the report.
 
-**Execution: delegated to a subagent.** The main context passes the evidence store
-path and claim candidates; the subagent returns a verification report. Claims were
-pre-populated by the retrieval subagent (Phase 3) with `support_status: "unverified"`;
-the triangulation subagent updates them to `supported`, `partial`, `unsupported`, or
-`needs_review` based on cross-referencing.
+**This phase is governed by claims-pipeline.md R3** — the full contract (independent
+checkers fetching primaries, lifecycle verdicts, checker-claims re-checked, fixpoint
+iteration) lives there. The quality standards below are the checker's working criteria.
 
-**Activities (subagent):**
-1. Identify claims requiring verification (scan `evidence.jsonl` for clusters)
-2. Cross-reference facts across 3+ sources
-3. Flag contradictions or uncertainties
-4. Assess source credibility (via `source_evaluator.py`)
-5. Note consensus vs. debate areas
-6. Write verification status per claim to `claims.jsonl`
+**Quality Standards (checker guidance):**
 
-**Subagent invocation:**
+- Core claims should have 3+ independent sources where the topic allows; flag any
+  single-source load-bearing claim.
+- Flag contradictions between sources explicitly — note consensus vs. debate areas.
+- Units, magnitudes, dates, proper nouns, stage labels, and quote fidelity are checked
+  against the source as written, not against the claim's paraphrase.
+- Note recency of information; `status`-kind claims use the source's own stage
+  vocabulary.
+- Aggregator-tier sources can never validate a load-bearing claim: locate the primary
+  or discard.
 
-```
-delegate_task(
-  goal="Triangulate evidence for [topic]: cross-reference claims in evidence.jsonl, write verdicts to claims.jsonl",
-  context="Evidence store: ~/research/[folder]/evidence.jsonl. Sources: sources.jsonl.
-           Return a compact verification report: verified claims, contradictions,
-           single-source flags, consensus map. Research question: [question]"
-)
-```
-
-**Quality Standards:**
-- Core claims must have 3+ independent sources
-- Flag any single-source information
-- Note recency of information
-- Identify potential biases
-
-**Output:** Verified fact base with confidence levels (persisted to `claims.jsonl`;
-compact report returned to main context)
+**Output:** `claims.jsonl` with lifecycle verdicts — `validated` claims are the report's
+only factual premises; `discarded`/`superseded` claims keep their audit trail
 
 ---
 
@@ -324,84 +303,37 @@ conclusions or uncovers more important angles than initially planned.
 
 **When to Execute:**
 - **Standard/Deep/UltraDeep modes only** (Quick mode skips this)
-- After Phase 4 (TRIANGULATE) completes
+- After Phase 4 (claim checking) completes, alongside the main-context coverage check
+  (claims-pipeline.md)
 - Before Phase 5 (SYNTHESIZE)
 
-**Execution: delegated.** A subagent analyzes the evidence and triangulation results
-against the original scope, and returns a refined outline + adaptation rationale.
-The main context approves or adjusts before synthesis begins.
+**Signals for adaptation (ANY triggers refinement):**
 
-**Activities (subagent):**
+- Major findings contradict initial assumptions
+- Evidence reveals more important angle than originally scoped
+- Critical subtopic emerged that wasn't in original plan
+- Original research question was too broad/narrow based on evidence
+- Sources consistently discuss aspects not in initial outline
 
-1. **Review Initial Scope vs. Actual Findings**
-   - Compare Phase 1 scope with Phase 3-4 discoveries
-   - Identify unexpected patterns or contradictions
-   - Note underexplored angles that emerged as critical
-   - Flag overexplored areas that proved less important
+**Refinement actions:**
 
-2. **Evaluate Outline Adaptation Need**
-
-   **Signals for adaptation (ANY triggers refinement):**
-   - Major findings contradict initial assumptions
-   - Evidence reveals more important angle than originally scoped
-   - Critical subtopic emerged that wasn't in original plan
-   - Original research question was too broad/narrow based on evidence
-   - Sources consistently discuss aspects not in initial outline
-
-   **Signals to keep current outline:**
-   - Evidence aligns with initial scope
-   - All key angles adequately covered
-   - No major gaps or surprises
-
-3. **Refine Outline (if needed)**
-
-   **Update structure to reflect evidence:**
-   - Add sections for unexpected but important findings
-   - Demote/remove sections with insufficient evidence
-   - Reorder sections based on evidence strength and importance
-   - Adjust scope boundaries based on what's actually discoverable
-
-   **Example adaptation:**
-   ```
-   Original outline:
-   1. Introduction
-   2. Technical Architecture
-   3. Performance Benchmarks
-   4. Conclusion
-
-   Refined after Phase 4 (evidence revealed security as critical):
-   1. Introduction
-   2. Technical Architecture
-   3. **Security Vulnerabilities (NEW - major finding)**
-   4. Performance Benchmarks (demoted - less critical than expected)
-   5. **Real-World Failure Modes (NEW - pattern emerged)**
-   6. Synthesis & Recommendations
-   ```
-
-4. **Targeted Gap Filling (if major gaps found)**
-
-   If outline refinement reveals critical knowledge gaps:
-   - Launch 2-3 targeted searches for newly identified angles
-   - Quick retrieval only (don't restart full Phase 3)
-   - Time-box to 2-5 minutes
-   - Update triangulation for new evidence only
-
-5. **Document Adaptation Rationale**
-
-   Record in methodology appendix:
-   - What changed in outline
-   - Why it changed (evidence-driven reasons)
-   - What additional research was conducted (if any)
+- Add sections for unexpected but important findings; demote/remove sections with
+  insufficient evidence; reorder based on evidence strength
+- Critical knowledge gaps → launch 2-3 targeted searches for newly identified angles
+  (quick retrieval only; time-box 2-5 minutes), which re-enter the claims pipeline as
+  delta claims (claims-pipeline.md "Mid-run scope changes")
+- Document the adaptation rationale in the methodology appendix: what changed, why
+  (evidence-driven reasons), what additional research was conducted
 
 **Quality Standards:**
+
 - Adaptation must be evidence-driven (cite specific sources that prompted change)
 - No more than 50% outline restructuring (if more needed, scope was severely mis-scoped)
 - Retain original research question core (don't drift into different topic entirely)
-- New sections must have supporting evidence already gathered
-
-**Output:** Refined outline that accurately reflects evidence landscape, ready for synthesis
+- New sections must have supporting claims already validated
 
 **Anti-Pattern Warning:**
+
 - DON'T adapt outline based on speculation or "what would be interesting"
 - DON'T add sections without supporting evidence already in hand
 - DON'T completely abandon original research question
@@ -420,13 +352,13 @@ phase — delegate it aggressively. The main context coordinates; subagents draf
 
 **Architecture:**
 
-1. **Main context** (control): read the refined outline + triangulation report,
+1. **Main context** (control): read the refined outline + validated claims register,
    decide the finding list, and dispatch section-drafting subagents in batches
    (up to 3 concurrent).
 
 2. **Section-drafting subagents** (`delegate_task` batch mode): each subagent
-   receives the relevant evidence subset (via `evidence.jsonl` paths + source IDs,
-   not full text), the report style guide, and the target word count. It writes
+   receives the relevant claim subset (via `claims.jsonl` claim IDs, not full text),
+   the outline section, the report style guide, and the target word count. It writes
    its section directly to the report file via
    `mcp__obsidian_research__write_note(mode="append")` and returns a 3-sentence
    abstract of what it wrote (for the main context's synthesis pass).
@@ -434,10 +366,14 @@ phase — delegate it aggressively. The main context coordinates; subagents draf
    ```
    delegate_task(tasks=[
      {"goal": "Draft Finding 1 ([title]) for [topic] research report, ~1500 words",
-      "context": "Evidence: ~/research/[folder]/evidence.jsonl (filter to source_ids [...]).
-                  Claims: claims.jsonl. Append to report via obsidian-research MCP:
+      "context": "Claims: ~/research/[folder]/claims.jsonl (use claim IDs [...]).
+                  Append to report via obsidian-research MCP:
                   path=[folder]/research_report_[...].md, mode=append.
-                  Style: prose-first >=80%, cite [N] per factual claim, no placeholders.
+                  Drafting rules per claims-pipeline.md R4: atomic factual assertions
+                  cite validated claims as [Cn] markers; reasoning/analysis is free
+                  (no citation) but operates only over registered premises; quoted
+                  spans verbatim from evidence_quote.
+                  Style: prose-first >=80%, no placeholders.
                   If your section derives numbers from data (sums, averages, growth rates,
                   comparisons), write the computation as a script to analysis/scripts/
                   and save input data to analysis/data/ — do NOT do arithmetic in prose.
@@ -446,6 +382,10 @@ phase — delegate it aggressively. The main context coordinates; subagents draf
      {"goal": "Draft Finding 3 ...", "context": "..."}
    ])
    ```
+
+   "Analysis needs a premise the register lacks" → the subagent STOPS and reports the
+   gap; the main context runs a targeted R1-R3 delta before drafting continues. There
+   is no escape valve from the write-claim / check-claim loop.
 
 3. **Main context** (synthesis): after all finding sections return, read the
    abstracts (not the full sections) and write the **Synthesis & Insights** section
@@ -457,7 +397,7 @@ phase — delegate it aggressively. The main context coordinates; subagents draf
 synthesis section is inherently global and cheap (it works from abstracts). This
 keeps ~80% of drafting tokens in subagents while preserving report coherence.
 
-**Reasoning:** Subagents use extended reasoning on their evidence subsets; the main
+**Reasoning:** Subagents use extended reasoning on their claim subsets; the main
 context uses it for cross-section pattern detection.
 
 **Output:** All report sections written to the report file; main context holds
@@ -477,20 +417,27 @@ whether to include a critique pass (default suggestion: yes).
 ### 6A: Red Team — Independent Adversarial Audit (delegate_task, mandatory)
 
 Spawn ONE independent red-team subagent via `delegate_task`. It must be a **fresh
-context**: it receives the report path, `sources.jsonl`, `evidence.jsonl`,
-`claims.jsonl`, and (if present) `analysis/` — but NOT the research conversation,
+context**: it receives the report path, `sources.jsonl`, `claims.jsonl` (the register),
+`evidence.jsonl`, and (if present) `analysis/` — but NOT the research conversation,
 the outline rationale, or the drafting subagents' abstracts. Its job is to attack the
 report, not to appreciate it.
 
-The red-team subagent audits three axes, in priority order:
+The red-team subagent audits four axes, in priority order:
 
-**Axis 1 — Citation-usage integrity (the distinguishing check).** Existing validators
-(`verify_citations.py`) catch *confabulated* references — sources that don't exist.
-This axis catches the subtler failure: the source is **real** but is **used
-incorrectly**. For every load-bearing citation [N] (any citation attached to a number,
-a comparative claim, a date, or a causal claim — sample at least 20 or all such
-citations if fewer), the subagent opens the actual source text (from `evidence.jsonl`
-quotes first, falling back to re-fetching the URL) and checks:
+**Axis 0 — Claims-pipeline integrity (the gating check).** Per claims-pipeline.md R5:
+every `[Cn]` marker resolves to a `validated` claim; every atomic factual assertion
+carries claim citations (smuggled-premise lint — watch for proper noun + checkable
+predicate constructions); `status`-kind claims are re-verified against live sources
+if >48h since `fetched_at`; facts appearing in both prose and tables are consistent.
+A `[Cn]` resolving to a candidate/discarded/superseded claim is a critical finding.
+
+**Axis 1 — Citation-usage integrity.** Existing validators (`verify_citations.py`)
+catch *confabulated* references — sources that don't exist. This axis catches the
+subtler failure: the source is **real** but is **used incorrectly**. For every
+load-bearing citation (any claim attached to a number, a comparative claim, a date,
+or a causal claim — sample at least 20 or all such claims if fewer), the subagent
+opens the actual source text (from the claim's `evidence_quote` first, falling back
+to re-fetching the URL) and checks:
 
 - **Attribution mismatch:** the claim says X but the source says X-about-something-else
   (e.g., report claims "market grew 23%" citing a source whose 23% figure is about a
@@ -546,8 +493,10 @@ acknowledged in the report's Limitations section; major findings must be fixed o
 acknowledged; minor findings are fixed at main-context discretion.
 
 **Red-team loop (mandatory).** After the red-team report is written, the main context
-fixes (or delegates fixes for) every `critical` and `major` finding, then re-runs the
-red-team subagent on the updated report. This fix → re-audit cycle repeats until either:
+fixes (or delegates fixes for) every `critical` and `major` finding — fixes needing new
+facts loop back to R1-R3 of the claims pipeline, never prose-only edits — then re-runs
+the red-team subagent on the updated report. This fix → re-audit cycle repeats until
+either:
 
 1. The red team returns zero `critical` and zero `major` findings, **or**
 2. Three red-team passes have been completed (the initial pass plus two re-audits),
@@ -587,10 +536,10 @@ team: the red team checks *correctness*, personas check *credibility and usefuln
 
 **Critical Gap Loop-Back:**
 If critique identifies a critical knowledge gap (not just a writing or accuracy issue),
-return to Phase 3 with targeted "delta-queries" before proceeding to Phase 7. Time-box
-to 3-5 minutes. This prevents publishing reports with known blind spots. Citation
-misuses and numeric errors found by the red team are NOT loop-backs — they are fixed
-in place in Phase 7.
+run a targeted claims-pipeline delta (R1-R3) before proceeding to Phase 7. Time-box
+to 3-5 minutes of scoping. This prevents publishing reports with known blind spots.
+Citation misuses and numeric errors found by the red team are NOT loop-backs — they
+are fixed in place in Phase 7.
 
 **Output:** `redteam_report.md` persisted to the report directory + compact critique
 summary in main context with severity counts
@@ -606,7 +555,7 @@ spawn a targeted subagent (delta-retrieval for gaps, or section-rewrite for weak
 arguments). The main context tracks which findings are resolved.
 
 **Activities (subagents):**
-1. Conduct additional research for gaps (delta-queries, evidence persisted as in Phase 3)
+1. Conduct additional research for gaps (delta-queries, persisted as in Phase 3)
 2. Strengthen weak arguments (targeted section rewrites, appended via MCP)
 3. Add missing perspectives
 4. Resolve contradictions
@@ -626,7 +575,10 @@ arguments). The main context tracks which findings are resolved.
 2. Write executive summary
 3. Develop detailed sections
 4. Create visualizations (tables, diagrams)
-5. Compile full bibliography
+5. **Commit the claim-annotated draft**, then run the mechanical conversion:
+   `python scripts/claims_convert.py --report [draft] --claims claims.jsonl --sources sources.jsonl`
+   replaces `[Cn]` markers with `[Sn]` citations and generates the inline bibliography.
+   Run `scripts/resolve_citations.py` after; commit again (claims-pipeline.md R6)
 6. Add methodology appendix
 7. Prepare grimoire-ready artifacts (see report-assembly.md)
 8. Generate HTML/PDF (PDF mandatory in gateway sessions — see Delivery Contract)
@@ -655,8 +607,8 @@ Use `delegate_task` to spawn subagents for:
 - Competing hypothesis evaluation
 - Specialized domain analysis
 
-Subagent results are self-reports — for anything load-bearing (a quoted statistic, a
-claimed URL), spot-verify with a direct fetch before it goes in the report.
+Subagent results are self-reports — anything load-bearing enters the report only as a
+validated claim (see claims-pipeline.md), never directly from a subagent's summary.
 
 ### Adaptive Depth Control
 
@@ -669,8 +621,8 @@ Automatically adjust research depth based on:
 ### Citation Intelligence
 
 Smart citation management:
-- Track provenance of every claim
+- Track provenance of every claim (the claims register IS the provenance trail)
 - Link to original sources (grimoire hits traced to their `source_url:`)
 - Assess source credibility
 - Handle conflicting sources
-- Generate proper bibliographies
+- Generate proper bibliographies (mechanical, via `claims_convert.py`)

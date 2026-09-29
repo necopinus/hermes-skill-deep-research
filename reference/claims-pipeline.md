@@ -1,9 +1,10 @@
 # Claims-Registry Pipeline
 
-Full spec for Phases 3-7 of the deep-research workflow. **Supersedes
-methodology.md's Phase 3-6 specifics where they conflict.** Phases 1-2 (scope,
-plan/outline) and the Phase-8 packaging mechanics (lint, PDF, delivery) are
-unchanged.
+Full spec for Phases 3-7 of the deep-research workflow: the claims flow from
+source scouting to mechanical citation conversion. methodology.md provides the
+phase-level mechanics this pipeline builds on (search ladder, subagent
+architecture, red-team audit axes); **where the two disagree, this document
+wins.**
 
 ## Why this exists
 

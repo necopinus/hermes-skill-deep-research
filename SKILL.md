@@ -56,8 +56,8 @@ perspective. Trend = recent 1-2 years.
 | 8 | PACKAGE | Y | Y | Y | Y | **Mixed** — commit claim-annotated draft → mechanical conversion (`claims_convert.py`) → standard gates → commit |
 
 **Claims pipeline:** Phases 3-7 follow the claims-registry pipeline — full spec in
-[claims-pipeline.md](./reference/claims-pipeline.md), which supersedes
-methodology.md's Phase 3-6 specifics where they conflict.
+[claims-pipeline.md](./reference/claims-pipeline.md). It governs the claims flow;
+methodology.md provides the phase-level mechanics it builds on.
 
 **Delegation principle:** Phases 3-8 are delegated to subagents whenever they involve
 multi-step generation, analysis, or drafting. The main context handles only:
@@ -118,7 +118,6 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 **Schemas** (structural contracts for the pipeline's JSONL/JSON files):
 - `schemas/source.schema.json` — `sources.jsonl` entries
 - `schemas/claim.schema.json` — `claims.jsonl` entries: the source-derived claims register (verbatim evidence quotes, lifecycle states)
-- `schemas/extracted_claim.schema.json` — LEGACY post-hoc report-extraction claims (pre-pipeline runs only)
 - `schemas/evidence.schema.json` — `evidence.jsonl` entries
 - `schemas/run_manifest.schema.json` — `run_manifest.json`
 
