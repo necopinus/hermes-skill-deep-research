@@ -1,3 +1,10 @@
+> **Note (2026-09-29):** Phases 3-6 below are the LEGACY flow, superseded by the
+> claims-registry pipeline — see [claims-pipeline.md](./claims-pipeline.md). In
+> particular, `claims.jsonl` now holds the source-derived claims register
+> (schema `schemas/claim.schema.json`, C-numbered ids, lifecycle states), not
+> the post-hoc extraction ledger described below (legacy schema:
+> `schemas/extracted_claim.schema.json`).
+
 # Deep Research Methodology: 8-Phase Pipeline
 
 ## Overview

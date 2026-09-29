@@ -47,13 +47,17 @@ perspective. Trend = recent 1-2 years.
 |-------|------|-------|-----|------|-------|----------------|
 | 1 | SCOPE | Y | Y | Y | Y | **Main context** (control) |
 | 2 | PLAN | - | Y | Y | Y | **Main context** (control) |
-| 3 | RETRIEVE | Y | Y | Y | Y | **delegate_task** (subagents) |
-| 4 | TRIANGULATE | - | Y | Y | Y | **delegate_task** (subagent synthesis) |
-| 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y | **delegate_task** (subagent analysis) |
-| 5 | SYNTHESIZE | - | Y | Y | Y | **delegate_task** (subagent drafting) |
-| 6 | CRITIQUE | † | Y | Y | Y | **delegate_task** (independent red team + persona subagents) |
-| 7 | REFINE | - | Y | Y | Y | **delegate_task** (targeted subagents) |
-| 8 | PACKAGE | Y | Y | Y | Y | **Mixed**: subagents for sections, main for validation |
+| 3 | RETRIEVE | Y | Y | Y | Y | **delegate_task** — claims pipeline R1-R2: source scouts, then deep-read claim extraction into `claims.jsonl` |
+| 4 | TRIANGULATE | - | Y | Y | Y | **delegate_task** — claims pipeline R3: adversarial claim checking (independent agents fetch primaries; iterate to fixpoint) |
+| 4.5 | OUTLINE REFINEMENT | - | Y | Y | Y | **Main context** — coverage check: validated claims mapped to outline; targeted deltas |
+| 5 | SYNTHESIZE | - | Y | Y | Y | **delegate_task** — drafting from validated claims only (`[Cn]` markers; analysis free) |
+| 6 | CRITIQUE | † | Y | Y | Y | **delegate_task** — report red team + correctness checker (citation resolution, smuggled premises, status re-verify) |
+| 7 | REFINE | - | Y | Y | Y | **delegate_task** — fixes; new facts loop back to R1-R3, never prose-only edits |
+| 8 | PACKAGE | Y | Y | Y | Y | **Mixed** — commit claim-annotated draft → mechanical conversion (`claims_convert.py`) → standard gates → commit |
+
+**Claims pipeline:** Phases 3-7 follow the claims-registry pipeline — full spec in
+[claims-pipeline.md](./reference/claims-pipeline.md), which supersedes
+methodology.md's Phase 3-6 specifics where they conflict.
 
 **Delegation principle:** Phases 3-8 are delegated to subagents whenever they involve
 multi-step generation, analysis, or drafting. The main context handles only:
@@ -87,11 +91,12 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 
 **On invocation, load relevant reference files:**
 
-1. **Phase 1-7:** Load [methodology.md](./reference/methodology.md) for detailed phase instructions
-2. **Phase 8 (Report):** Load [report-assembly.md](./reference/report-assembly.md) for progressive generation
-3. **HTML/PDF output:** Load [html-generation.md](./reference/html-generation.md)
-4. **Quality checks:** Load [quality-gates.md](./reference/quality-gates.md)
-5. **Long reports (>18K words):** Load [continuation.md](./reference/continuation.md)
+1. **Phase 1-2 (scope/plan):** Load [methodology.md](./reference/methodology.md)
+2. **Phases 3-7 (claims pipeline):** Load [claims-pipeline.md](./reference/claims-pipeline.md) — source scouting, deep-read claim extraction, adversarial claim checking, claim-grounded drafting
+3. **Phase 8 (Report):** Load [report-assembly.md](./reference/report-assembly.md) for progressive generation
+4. **HTML/PDF output:** Load [html-generation.md](./reference/html-generation.md)
+5. **Quality checks:** Load [quality-gates.md](./reference/quality-gates.md)
+6. **Long reports (>18K words):** Load [continuation.md](./reference/continuation.md)
 
 **Templates:**
 - Report structure: [report_template.md](./templates/report_template.md)
@@ -101,6 +106,9 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - `python scripts/validate_report.py --report [path]`
 - `python scripts/verify_citations.py --report [path]`
 - `python scripts/verify_pdf_text.py --pdf [path]` (mandatory when a PDF is generated)
+- `python scripts/claims_check.py --claims [claims.jsonl]` — structural validation of the claims register (mandatory after R2/R3)
+- `python scripts/claims_convert.py --report [draft.md] --claims [claims.jsonl] --sources [sources.jsonl]` — mechanical `[Cn]` → `[Sn]` conversion + inline Bibliography generation (Phase 8, after the pre-conversion commit)
+- `python scripts/resolve_citations.py --report [report.md]` — body↔registry↔inline-bibliography cross-check (after conversion)
 - `python scripts/md_to_html.py [markdown_path]`
 - `python scripts/citation_manager.py` — source registration and citation numbering
 - `python scripts/evidence_store.py` — evidence persistence (add/query)
@@ -109,8 +117,9 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 
 **Schemas** (structural contracts for the pipeline's JSONL/JSON files):
 - `schemas/source.schema.json` — `sources.jsonl` entries
+- `schemas/claim.schema.json` — `claims.jsonl` entries: the source-derived claims register (verbatim evidence quotes, lifecycle states)
+- `schemas/extracted_claim.schema.json` — LEGACY post-hoc report-extraction claims (pre-pipeline runs only)
 - `schemas/evidence.schema.json` — `evidence.jsonl` entries
-- `schemas/claim.schema.json` — `claims.jsonl` entries
 - `schemas/run_manifest.schema.json` — `run_manifest.json`
 
 ---
@@ -124,14 +133,18 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - Synthesis & Insights (patterns, implications)
 - Limitations & Caveats
 - Recommendations
-- Bibliography (COMPLETE - every citation, no placeholders)
+- Bibliography (COMPLETE - every citation, no placeholders). The bibliography lives INLINE in the report itself (full titles + URLs, per the template's `## Bibliography` section): the report must be self-contained and shareable as a single file. Never satisfy this section by pointing to `bibliography.md` or any other external file.
 - Methodology Appendix
 
 **Output files (all to `~/research/[Topic]_Research_[YYYYMMDD]/`):**
 - Markdown report (primary source of truth) — written via `mcp__obsidian_research__write_note`
-- `bibliography.md` — standalone ingestion map for future wiki integration (MCP-written)
+- `bibliography.md` — standalone ingestion map for future wiki integration (MCP-written). This is a DERIVED copy of the report's inline Bibliography section, generated for tooling and wiki ingestion — never a substitute for the inline section.
 - `artifacts/` — grimoire-raw-ready markdown extracts of key sources (MCP-written)
-- `sources.jsonl` — stable source registry with canonical IDs
+- `sources.jsonl` — stable source registry with canonical IDs and provenance tiers
+- `claims.jsonl` — the source-derived claims register: verbatim evidence quotes and
+  lifecycle states (candidate/validated/discarded/superseded); the ONLY source of
+  factual premises for drafting (claims pipeline)
+- `ERRATA.md` — dated, numbered log of post-publication corrections (standing practice)
 - `evidence.jsonl` — append-only evidence store with quotes and locators
 - `claims.jsonl` — atomic claim ledger with support status
 - `redteam_report.md` — independent adversarial audit from Phase 6A (all modes;

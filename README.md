@@ -135,7 +135,7 @@ deep-research/
 ├── schemas/
 │   ├── source.schema.json            # sources.jsonl entry structure
 │   ├── evidence.schema.json          # evidence.jsonl entry structure
-│   ├── claim.schema.json             # claims.jsonl entry structure
+│   ├── claim.schema.json             # claims.jsonl (claims register) entry structure
 │   └── run_manifest.schema.json      # run_manifest.json structure
 ├── scripts/
 │   ├── validate_report.py            # 9-check structure validator

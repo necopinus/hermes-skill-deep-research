@@ -166,7 +166,7 @@ All files use the same base name:
 │   └── [source-slug].md
 ├── sources.jsonl                          # stable source registry
 ├── evidence.jsonl                         # append-only evidence store
-├── claims.jsonl                           # atomic claim ledger
+├── claims.jsonl                           # source-derived claims register (claims pipeline)
 └── run_manifest.json                      # query, mode, assumptions, provider config
 ```
 
