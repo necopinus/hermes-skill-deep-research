@@ -138,9 +138,13 @@ deep-research/
 │   ├── claim.schema.json             # claims.jsonl (claims register) entry structure
 │   └── run_manifest.schema.json      # run_manifest.json structure
 ├── scripts/
+│   ├── extract_office_text.py        # Provided Office/PDF -> source_material/ (heading-safe)
 │   ├── validate_report.py            # 9-check structure validator
-│   ├── verify_citations.py           # DOI/URL/hallucination checker
+│   ├── verify_citations.py           # DOI/URL/hallucination checker (pre-conversion)
+│   ├── resolve_citations.py          # Post-conversion body/registry/bibliography cross-check
 │   ├── verify_pdf_text.py            # PDF text-layer checker (MarkItDown-friendly)
+│   ├── claims_check.py               # Claims register structural validation
+│   ├── claims_convert.py             # [Cn] -> [Sn] conversion + inline Bibliography
 │   ├── source_evaluator.py           # Source credibility scoring
 │   ├── citation_manager.py           # Citation tracking
 │   ├── md_to_html.py                 # Markdown to HTML converter

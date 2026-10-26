@@ -65,6 +65,11 @@ multi-step generation, analysis, or drafting. The main context handles only:
 - Final validation and delivery decisions
 - Cross-phase coordination and gap-filling when subagents return incomplete work
 
+For multi-report projects delivered sequentially as autonomous builder processes
+(`hermes -z`, one per report, orchestrator verifies and commits between builds), see
+subagent-orchestration's "Process-level nesting" section — briefs use that skill's
+`templates/builder_brief.md`.
+
 **† Quick mode Phase 6:** Skipped by default. If the research is decision-critical,
 ask the user whether to include a critique pass (default suggestion: yes).
 
@@ -87,6 +92,36 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 
 ---
 
+## Provided local sources (decks, standards, documents)
+
+When the user supplies source material (training decks, licensed standards, PDFs), the
+run is driven from those documents and web research only fills depth:
+
+1. **Inventory first, then scope.** Survey the corpus before asking anything — per-file
+   text/notes richness tells you where the substance is (thin slide text or empty speaker
+   notes means diagrams carry the content and a vision pass is needed). Batch every
+   scoping question into ONE `clarify` call, then begin.
+2. **Extract mechanically** into `<report_dir>/source_material/` with
+   `scripts/extract_office_text.py` (pptx: slide text + per-slide-mapped speaker notes;
+   docx: paragraphs; pdf: `pdftotext -layout`; `--images` adds per-slide image copies,
+   a full media dump, and a manifest for vision passes). Its output is heading-safe
+   (extracted text cannot fake setext/ATX headings). Don't hand-extract, and don't make
+   sub-agents re-extract from the binaries.
+3. **Licensed or confidential provided material stays on-disk only**: add
+   `source_material/` to `.git/info/exclude` (repo-local — never edit the tracked
+   `.gitignore`) before committing; the vault remote is third-party. Default quote
+   policy for licensed texts: brief verbatim quotes with clause/locator refs — confirm
+   the user's sharing scope when it matters.
+4. **Cite provided documents as primary sources** (e.g. `(Deck name, slide N)`); the
+   claims registry covers EXTERNAL corroboration, not content derived from the provided
+   documents themselves.
+5. **Training-prep variant** (a report whose job is to teach a supplied course): the
+   course's own agenda is the report skeleton and the chapters follow its arc; expand
+   what the slides assume; include exactly the presenter extras the user picks from one
+   batched question (exercise walkthroughs with worked answers are the default bet).
+
+---
+
 ## Execution
 
 **On invocation, load relevant reference files:**
@@ -103,8 +138,14 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 - HTML styling: [mckinsey_report_template.html](./templates/mckinsey_report_template.html)
 
 **Scripts:**
+- `python scripts/extract_office_text.py SRC [SRC ...] --out DIR [--images]` — extract
+  provided Office/PDF documents into heading-safe `source_material/` markdown (pptx:
+  slide text + per-slide-mapped speaker notes; docx: paragraphs; pdf: `pdftotext
+  -layout`); `--images` adds per-slide image copies, a full media dump, and a manifest
 - `python scripts/validate_report.py --report [path]`
-- `python scripts/verify_citations.py --report [path]`
+- `python scripts/verify_citations.py --report [path]` — run BEFORE `claims_convert`
+  or on a normalized view: it cannot parse the post-conversion `- [Sn]` list format
+  (`resolve_citations.py` is the post-conversion gate)
 - `python scripts/verify_pdf_text.py --pdf [path]` (mandatory when a PDF is generated)
 - `python scripts/claims_check.py --claims [claims.jsonl]` — structural validation of the claims register (mandatory after R2/R3)
 - `python scripts/claims_convert.py --report [draft.md] --claims [claims.jsonl] --sources [sources.jsonl]` — mechanical `[Cn]` → `[Sn]` conversion + inline Bibliography generation (Phase 8, after the pre-conversion commit)
@@ -138,7 +179,13 @@ Details in [methodology.md](./reference/methodology.md) Phase 3.
 **Output files (all to `~/research/[Topic]_Research_[YYYYMMDD]/`):**
 - Markdown report (primary source of truth) — written via `mcp__obsidian_research__write_note`
 - `bibliography.md` — standalone ingestion map for future wiki integration (MCP-written). This is a DERIVED copy of the report's inline Bibliography section, generated for tooling and wiki ingestion — never a substitute for the inline section.
-- `artifacts/` — grimoire-raw-ready markdown extracts of key sources (MCP-written)
+- `artifacts/` — grimoire-raw-ready markdown extracts for EVERY source in
+  `sources.jsonl` (not just "key" ones): every claim's evidence quote must be
+  verifiable against on-disk text, not live fetches alone. Before delivery, sweep all
+  claims' quotes against the extract corpus and backfill any missing extract
+  (`web_extract` silently caps at 5 URLs per call and returns only the first batch —
+  batch accordingly, and key results by position: returned URLs are post-redirect and
+  won't match the requested strings)
 - `sources.jsonl` — stable source registry with canonical IDs and provenance tiers
 - `claims.jsonl` — the source-derived claims register: verbatim evidence quotes and
   lifecycle states (candidate/validated/discarded/superseded); the ONLY source of
@@ -186,10 +233,19 @@ markdownlint-cli2 --no-globs --config ~/research/.markdownlint-cli2.jsonc \
 
 - `--no-globs` is required — without it the config's `globs` are ADDED to the file
   arguments and you lint the whole vault per invocation.
-- `markdownlint-cli2 --fix` (before `--no-globs`) safely handles the mechanical
-  findings (emphasis style, list markers, trailing spaces) on authored report files;
-  re-run without `--fix` to confirm zero findings. `analysis/` scripts and datasets
-  aren't linted (not markdown); any README.md files under `analysis/` are.
+- `markdownlint-cli2 --fix` safely handles the mechanical findings (emphasis style,
+  list markers, trailing spaces) on authored report files; re-run without `--fix` to
+  confirm zero findings. `analysis/` scripts and datasets aren't linted (not markdown);
+  any README.md files under `analysis/` are. **Fetched source extracts in `artifacts/`
+  (sha256-provenance frontmatter) are treated like grimoire `raw/`**: `--fix`
+  mechanical whitespace is safe (evidence matching normalizes whitespace), but never
+  rewrite extract content — structural findings scraped pages bring (heading
+  increments, unlabeled code fences) get a per-file
+  `<!-- markdownlint-disable MDxxx -->` line right after the frontmatter instead.
+- **`--fix` without `--no-globs` is destructive, not just noisy**: the sweep rewrites
+  every markdown file in the vault, violating the piecemeal policy. After ANY lint
+  `--fix` run, check `git status` and `git checkout --` every file you did not
+  intentionally edit, then re-run scoped to your own files with `--no-globs`.
 - The pre-commit hook (`.githooks/pre-commit`) also runs this check but with
   `|| true` — it reports without blocking. The skill's lint step is the real gate.
 - **Piecemeal policy (updated 2026-08-27):** fix everything the linter surfaces in

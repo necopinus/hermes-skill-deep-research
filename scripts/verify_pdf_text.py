@@ -59,6 +59,10 @@ LONG_WORD_WHITELIST = {
 # extraction defects. Keep lowercase. Add domain/report compounds as they appear.
 COMPOUND_WHITELIST = {
     # everyday compounds
+    "walkthrough", "walkthroughs", "background", "backgrounds", "reachable",
+    "whitespace", "acceptable", "reasonable", "viewpoint", "learnable",
+    "backoffice",
+    "reportable", "whiteboard", "whiteboards", "marketable",
     "healthcare", "standalone", "understand", "understanding", "understood",
     "alongside", "afterthought", "aftermath", "withstand", "withstanding",
     "overcome", "overcoming", "outcome", "outcomes", "overview", "oversee",
