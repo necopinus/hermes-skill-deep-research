@@ -128,7 +128,7 @@ run is driven from those documents and web research only fills depth:
 
 1. **Phase 1-2 (scope/plan):** Load [methodology.md](./reference/methodology.md)
 2. **Phases 3-7 (claims pipeline):** Load [claims-pipeline.md](./reference/claims-pipeline.md) — source scouting, deep-read claim extraction, adversarial claim checking, claim-grounded drafting
-3. **Phase 8 (Report):** Load [report-assembly.md](./reference/report-assembly.md) for progressive generation
+1. **Phase 8 (Report):** Load [report-assembly.md](./reference/report-assembly.md) for progressive generation. Section order: Methodology appendix and Report Metadata BEFORE '## Bibliography' — `claims_convert.py` replaces everything from the Bibliography heading to EOF (only a '### Consulted' subsection survives), so the template's bibliography-first order silently deletes the appendix at conversion.
 4. **HTML/PDF output:** Load [html-generation.md](./reference/html-generation.md)
 5. **Quality checks:** Load [quality-gates.md](./reference/quality-gates.md)
 6. **Long reports (>18K words):** Load [continuation.md](./reference/continuation.md)

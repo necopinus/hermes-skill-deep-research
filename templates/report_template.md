@@ -312,6 +312,10 @@ CITATION TRACKING (CRITICAL):
 ## Bibliography
 
 <!-- ============================================================================ -->
+<!-- CRITICAL ORDERING: claims_convert.py replaces EVERYTHING from the       -->
+<!-- '## Bibliography' heading to EOF except a '### Consulted' subsection.   -->
+<!-- Place the Methodology appendix and Report Metadata BEFORE '##           -->
+<!-- Bibliography' (house convention) or conversion silently deletes them.   -->
 <!-- CRITICAL: Generate COMPLETE bibliography with ALL sources cited in report   -->
 <!-- DO NOT use placeholders like "[8-75] Additional citations" or "etc."        -->
 <!-- DO NOT use "...continue..." or "[Continue with all sources...]"             -->
