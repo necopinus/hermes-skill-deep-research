@@ -9,7 +9,7 @@ wins.**
 ## Why this exists
 
 The CWC citation audit (2026-09-28/29,
-`~/research/Cryptographic_World_Computer_Research_20260927/redteam_report_part{A,B,C}.md`)
+`~/workspace/research/Cryptographic_World_Computer_Research_20260927/redteam_report_part{A,B,C}.md`)
 showed the old pipeline's failure mode: claims entered prose through uncontrolled
 channels (subagent summaries treated as facts), and verification — when it
 happened — came *after* prose existed. This pipeline makes the **claim** the

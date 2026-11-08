@@ -22,11 +22,11 @@ The search ladder runs over MCP servers configured in the Hermes config:
 
 | Server | Role | Setup |
 |--------|------|-------|
-| obsidian-grimoire | Local wiki, searched first | Obsidian MCP pointed at `~/grimoire` |
+| obsidian-grimoire | Local wiki, searched first | Obsidian MCP pointed at `~/workspace/grimoire` |
 | kagi | Primary web search | Kagi MCP + API key |
 | exa | Semantic/neural search | Exa MCP + API key |
 
-Reports are written to the `~/research` Obsidian vault via the `obsidian-research`
+Reports are written to the `~/workspace/research` Obsidian vault via the `obsidian-research`
 MCP server. If that vault/server isn't configured, fall back to plain file writes
 (the skill degrades gracefully, but the MCP route is the intended path).
 
@@ -35,7 +35,7 @@ MCP server. If that vault/server isn't configured, fall back to plain file write
 The research vault syncs via git. After a report completes:
 
 ```bash
-cd ~/research && git pull
+cd ~/workspace/research && git pull
 git add "[Topic]_Research_[YYYYMMDD]/" && git commit -m "<message>" && git push
 ```
 
@@ -75,7 +75,7 @@ and final validation — this keeps the bulk of token spend in subagents.
 
 Key features:
 - **Step 0**: Retrieves current date before searches (prevents stale training-data year assumptions)
-- **Search ladder**: local wiki (`~/grimoire`) &rarr; Kagi MCP &rarr; Exa MCP, with provenance tracing to original URLs
+- **Search ladder**: local wiki (`~/workspace/grimoire`) &rarr; Kagi MCP &rarr; Exa MCP, with provenance tracing to original URLs
 - **Parallel retrieval**: batched concurrent searches + `delegate_task` subagents returning structured evidence objects
 - **Delegated synthesis**: per-finding section-drafting subagents write directly to the report via MCP; main context writes only the cross-cutting Synthesis section
 - **First Finish Search**: Adaptive quality thresholds by mode
@@ -85,10 +85,10 @@ Key features:
 
 ## Output
 
-Reports saved to `~/research/[Topic]_Research_[Date]/`:
+Reports saved to `~/workspace/research/[Topic]_Research_[Date]/`:
 - Markdown (primary source of truth, written via the obsidian-research MCP)
 - `bibliography.md` — standalone ingestion map for wiki integration
-- `artifacts/` — source extracts with llm-wiki `raw/` frontmatter, drop-in ready for `~/grimoire/raw/articles/`
+- `artifacts/` — source extracts with llm-wiki `raw/` frontmatter, drop-in ready for `~/workspace/grimoire/raw/articles/`
 - `sources.jsonl` / `evidence.jsonl` / `claims.jsonl` / `run_manifest.json`
 - HTML (McKinsey-style, optional) and PDF (WeasyPrint, optional) — never auto-opened
 
@@ -159,7 +159,7 @@ deep-research/
 | Version | Date | Changes |
 |---------|------|---------|
 | 3.2-hermes | 2026-08-01 | Delegation-first pipeline (phases 3-8 delegated to subagents; main context keeps scope/plan/final validation); mandatory PDF text-layer verification (`verify_pdf_text.py`, MarkItDown-friendly); PDF always generated + attached in gateway sessions; `env PATH` pin for `ob sync` (Node ABI) |
-| 3.1-hermes | 2026-07-17 | Hermes port: search ladder (grimoire -> Kagi -> Exa), obsidian-research MCP writes, ~/research output + ob sync, MEDIA: delivery, grimoire-ready artifacts, continuation via delegate_task/fresh session |
+| 3.1-hermes | 2026-07-17 | Hermes port: search ladder (grimoire -> Kagi -> Exa), obsidian-research MCP writes, ~/workspace/research output + ob sync, MEDIA: delivery, grimoire-ready artifacts, continuation via delegate_task/fresh session |
 | 2.3.1 | 2026-03-19 | Template/validator harmonization, structured evidence, critique loop-back, multi-persona red teaming |
 | 2.3 | 2026-03-19 | Contract harmonization, search-cli integration, dynamic year detection, disk-persisted citations, validation loops |
 | 2.2 | 2025-11-05 | Auto-continuation system for unlimited length |

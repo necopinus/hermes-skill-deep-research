@@ -325,7 +325,7 @@ def main():
         epilog="""
 Examples:
   python validate_report.py --report report.md
-  python validate_report.py -r ~/research/Topic_Research_20260717/research_report_20260717_topic.md
+  python validate_report.py -r ~/workspace/research/Topic_Research_20260717/research_report_20260717_topic.md
         """
     )
 

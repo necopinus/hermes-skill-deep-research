@@ -72,7 +72,7 @@ Search proceeds as a ladder — start local, escalate outward only as needed. Ea
 feeds the next: note what you found, what gaps remain, and target the next rung at
 those gaps.
 
-#### Rung 1: Local wiki (`~/grimoire`) — always first
+#### Rung 1: Local wiki (`~/workspace/grimoire`) — always first
 
 The shared wiki may already contain synthesized pages and raw sources on the topic.
 Search it before touching the web:
@@ -366,7 +366,7 @@ phase — delegate it aggressively. The main context coordinates; subagents draf
    ```
    delegate_task(tasks=[
      {"goal": "Draft Finding 1 ([title]) for [topic] research report, ~1500 words",
-      "context": "Claims: ~/research/[folder]/claims.jsonl (use claim IDs [...]).
+      "context": "Claims: ~/workspace/research/[folder]/claims.jsonl (use claim IDs [...]).
                   Append to report via obsidian-research MCP:
                   path=[folder]/research_report_[...].md, mode=append.
                   Drafting rules per claims-pipeline.md R4: atomic factual assertions

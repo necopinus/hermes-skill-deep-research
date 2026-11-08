@@ -22,9 +22,9 @@ Reports that will exceed ~18,000 words total use the continuation protocol
 
 ## Output Location
 
-**Base directory:** `~/research/[TopicName]_Research_[YYYYMMDD]/`
+**Base directory:** `~/workspace/research/[TopicName]_Research_[YYYYMMDD]/`
 
-- `~/research` is an Obsidian vault, served by the `obsidian-research` MCP server.
+- `~/workspace/research` is an Obsidian vault, served by the `obsidian-research` MCP server.
   ALL markdown files (report, bibliography, grimoire-ready artifacts) are written via
   `mcp__obsidian_research__*` tools — not raw file writes.
 - Non-markdown files (`sources.jsonl`, `evidence.jsonl`, `claims.jsonl`,
@@ -41,7 +41,7 @@ After the final report is written (and after any continuation finalizes), sync t
 vault via git:
 
 ```bash
-cd ~/research && git pull
+cd ~/workspace/research && git pull
 git -c user.name="Inaba" -c user.email="inaba@cardboard-iguana.com" \
   -c user.signingKey="/home/exedev/.ssh/id_ed25519" \
   add "[Topic]_Research_[YYYYMMDD]/" && \
@@ -67,10 +67,10 @@ generation manageable.
 
 ```bash
 # Create folder (needed once so non-md artifacts have somewhere to live)
-mkdir -p ~/research/[folder_name]/artifacts
+mkdir -p ~/workspace/research/[folder_name]/artifacts
 
 # Initialize research run (persist run manifest + jsonl ledgers)
-python scripts/citation_manager.py init-run --out-dir ~/research/[folder_name] \
+python scripts/citation_manager.py init-run --out-dir ~/workspace/research/[folder_name] \
   --query "[question]" --mode [mode]
 # Creates: run_manifest.json, sources.jsonl, evidence.jsonl, claims.jsonl
 ```
@@ -93,13 +93,13 @@ next section. Each call contains ONE section (<=2,000 words per call).
 ```bash
 python scripts/citation_manager.py register-source \
   --json '{"raw_url": "...", "title": "...", "source_type": "academic", "year": "2024"}' \
-  --dir ~/research/[folder_name]
+  --dir ~/workspace/research/[folder_name]
 # Returns stable source_id (sha256-based, survives renumbering and continuation)
 ```
 
 **Assign display numbers after all sources registered:**
 ```bash
-python scripts/citation_manager.py assign-display-numbers --dir ~/research/[folder_name]
+python scripts/citation_manager.py assign-display-numbers --dir ~/workspace/research/[folder_name]
 # Maps stable source_ids to [1], [2], [3]... for rendering
 ```
 
@@ -122,7 +122,7 @@ continuation sessions pick up citation state via stable IDs.
 
 ## Grimoire-Ready Artifacts
 
-Reports feed the shared wiki at `~/grimoire` (see the llm-wiki skill). Integration is
+Reports feed the shared wiki at `~/workspace/grimoire` (see the llm-wiki skill). Integration is
 NEVER automatic — but the report folder must make it trivial.
 
 **For every source whose content was fetched in full** (via kagi extract, exa fetch, or
@@ -136,7 +136,7 @@ mcp__obsidian_research__write_note(
 ```
 
 This frontmatter format matches llm-wiki's `raw/` convention exactly, so artifacts can
-be dropped straight into `~/grimoire/raw/articles/` (via `cp` or a wiki move) without
+be dropped straight into `~/workspace/grimoire/raw/articles/` (via `cp` or a wiki move) without
 reformatting. Compute the sha256 over the body only (everything after the closing
 `---`) — `sha256sum` on a temp copy, or `execute_code`.
 
@@ -146,7 +146,7 @@ URL, retrieval date, credibility score, and `source_type`. This is the ingestion
 future llm-wiki session can read it to know exactly which artifacts exist and which
 sources still need fetching.
 
-**Provenance chain:** sources originally found in `~/grimoire` keep their ORIGINAL
+**Provenance chain:** sources originally found in `~/workspace/grimoire` keep their ORIGINAL
 `source_url:` (from the raw file's frontmatter), with an added
 `via: "grimoire: raw/articles/[file].md"` frontmatter line so the chain stays visible.
 
@@ -157,7 +157,7 @@ sources still need fetching.
 All files use the same base name:
 
 ```
-~/research/[TopicName]_Research_[YYYYMMDD]/
+~/workspace/research/[TopicName]_Research_[YYYYMMDD]/
 ├── research_report_[YYYYMMDD]_[slug].md   # primary source of truth (MCP-written)
 ├── research_report_[YYYYMMDD]_[slug].html # optional, McKinsey style
 ├── research_report_[YYYYMMDD]_[slug].pdf  # optional, Pandoc→LaTeX or WeasyPrint

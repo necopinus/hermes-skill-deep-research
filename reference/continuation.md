@@ -32,7 +32,7 @@ session resume for anything longer.
 
 **Location:** inside the report folder, `continuation_state.json`
 
-(e.g. `~/research/Topic_Research_20260717/continuation_state.json`)
+(e.g. `~/workspace/research/Topic_Research_20260717/continuation_state.json`)
 
 Keeping state next to the artifacts (not in a global state dir) means the folder is
 self-contained and the state is included if the folder is synced or archived.

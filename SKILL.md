@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Use when the user needs multi-source research with citation tracking, evidence persistence, and structured report generation. Triggers on "deep research", "comprehensive analysis", "research report", "compare X vs Y", "analyze trends", or "state of the art". Not for simple lookups, debugging, or questions answerable with 1-2 searches.
+description: "Use for multi-source research and citation-tracked reports."
 ---
 
 # Deep Research
@@ -11,7 +11,7 @@ Deliver citation-tracked research reports through a structured pipeline with evi
 persistence, source identity management, claim-level verification, and progressive
 context management.
 
-**Before beginning a run:** `cd ~/research && git pull` to ensure the vault is up-to-date.
+**Before beginning a run:** `cd ~/workspace/research && git pull` to ensure the vault is up-to-date.
 
 **Autonomy Principle:** Operate independently. Infer assumptions from context. Only stop
 for critical errors or incomprehensible queries. Surface high-materiality assumptions
@@ -81,7 +81,7 @@ strict sequential gates. Each loop iteration is a candidate for delegation.
 
 ## Search Ladder (summary)
 
-1. **`~/grimoire`** — `mcp__obsidian_grimoire__search_notes` first, always. Trace hits
+1. **`~/workspace/grimoire`** — `mcp__obsidian_grimoire__search_notes` first, always. Trace hits
    to their original `source_url:` for citations.
 2. **Kagi MCP** — `mcp__kagi__kagi_search_fetch` is the primary web search.
 3. **Exa (built-in `web_search`)** — semantic search and gap-filling. Exa is the
@@ -176,7 +176,7 @@ run is driven from those documents and web research only fills depth:
 - Bibliography (COMPLETE - every citation, no placeholders). The bibliography lives INLINE in the report itself (full titles + URLs, per the template's `## Bibliography` section): the report must be self-contained and shareable as a single file. Never satisfy this section by pointing to `bibliography.md` or any other external file.
 - Methodology Appendix
 
-**Output files (all to `~/research/[Topic]_Research_[YYYYMMDD]/`):**
+**Output files (all to `~/workspace/research/[Topic]_Research_[YYYYMMDD]/`):**
 - Markdown report (primary source of truth) — written via `mcp__obsidian_research__write_note`
 - `bibliography.md` — standalone ingestion map for future wiki integration (MCP-written). This is a DERIVED copy of the report's inline Bibliography section, generated for tooling and wiki ingestion — never a substitute for the inline section.
 - `artifacts/` — grimoire-raw-ready markdown extracts for EVERY source in
@@ -215,7 +215,7 @@ run is driven from those documents and web research only fills depth:
   NEVER auto-opened. Do not treat PDF as a per-surface afterthought — it has been
   missed repeatedly; generate it as part of Phase 8 packaging, every run.)
 
-**Markdown linting (REQUIRED before commit):** the `~/research` vault is linted with
+**Markdown linting (REQUIRED before commit):** the `~/workspace/research` vault is linted with
 `markdownlint-cli2` and the repo config `.markdownlint-cli2.jsonc`. After all output
 files are written, lint every `.md` file created or modified this run and resolve ALL
 findings BEFORE the git commit — **including pre-existing findings in files you
@@ -225,8 +225,8 @@ piecemeal. Don't leave a finding because "it was already there", and don't keep 
 new file consistent with the vault's old convention violations.
 
 ```bash
-cd ~/research
-markdownlint-cli2 --no-globs --config ~/research/.markdownlint-cli2.jsonc \
+cd ~/workspace/research
+markdownlint-cli2 --no-globs --config ~/workspace/research/.markdownlint-cli2.jsonc \
   "[Topic]_Research_[YYYYMMDD]/research_report_[...].md" \
   "[Topic]_Research_[YYYYMMDD]/bibliography.md" # ...plus every other .md written
 ```
@@ -254,7 +254,7 @@ markdownlint-cli2 --no-globs --config ~/research/.markdownlint-cli2.jsonc \
   reveals a genuine config/house-style mismatch, fix the file AND flag the mismatch
   for Nathan so the config can be revisited.
 
-**After completion:** update the vault remote. From `~/research`: `git pull`, then
+**After completion:** update the vault remote. From `~/workspace/research`: `git pull`, then
 stage the new report directory and commit with
 `git -c user.name="Inaba" -c user.email="inaba@cardboard-iguana.com" -c user.signingKey="/home/exedev/.ssh/id_ed25519" commit -m "<short informative message about the new report>"`,
 then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism now.)
@@ -282,7 +282,7 @@ then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism
    platform delivers it as a native attachment:
 
    ```
-   MEDIA:/home/exedev/research/[Topic]_Research_[YYYYMMDD]/research_report_[...].pdf
+   MEDIA:/home/exedev/workspace/research/[Topic]_Research_[YYYYMMDD]/research_report_[...].pdf
    ```
 
    On Discord/Telegram this arrives as a file upload. **Generate the PDF in every
@@ -294,10 +294,11 @@ then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism
    deliverable, but the PDF is still generated, not skipped. **In WebUI sessions,
    MEDIA: paths must point inside the active workspace** (the `[Workspace::v1: ...]`
    path, typically `~/workspace`) — files outside it fail
-   user-side with "Path not in allowed location". Copy deliverables into the workspace
-   (e.g. `~/workspace/[Topic]_Research_[YYYYMMDD]/`) and reference the copies; the
-   `~/research` originals remain the source of truth.
-3. **Wiki note:** the report lives in the `~/research` vault, so it is already
+   user-side with "Path not in allowed location". The research vault is already under
+   `~/workspace`, so no delivery copy is needed when that is the active workspace. If a
+   different workspace is active, copy deliverables there and reference the copies; the
+   `~/workspace/research` originals remain the source of truth.
+3. **Wiki note:** the report lives in the `~/workspace/research` vault, so it is already
    searchable/linkable in Obsidian once committed and pushed.
 
 ---
