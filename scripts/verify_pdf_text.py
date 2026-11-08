@@ -66,7 +66,7 @@ COMPOUND_WHITELIST = {
     "reportable", "whiteboard", "whiteboards", "marketable",
     "healthcare", "standalone", "understand", "understanding", "understood",
     "alongside", "afterthought", "aftermath", "withstand", "withstanding",
-    "overcome", "overcoming", "outcome", "outcomes", "overview", "oversee",
+    "overcome", "overcoming", "outcome", "outcomes", "overview", "oversee", "overnight",
     "undertake", "undertaking", "nonetheless", "nevertheless", "insofar",
     "heretofore", "thereafter", "thereunder", "whereafter", "hereunder",
     "elsewhere", "everywhere", "underwent", "anywhere", "somewhere",

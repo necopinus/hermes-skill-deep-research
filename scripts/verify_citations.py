@@ -61,8 +61,8 @@ class CitationVerifier:
 
     def extract_bibliography(self) -> List[Dict]:
         """Extract bibliography entries from report"""
-        pattern = r'## Bibliography(.*?)(?=##|\Z)'
-        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE)
+        pattern = r'## Bibliography(.*?)(?=^##\s|\Z)'
+        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
         if not match:
             self.errors.append("No Bibliography section found")
@@ -81,7 +81,7 @@ class CitationVerifier:
                 continue
 
             # Check if starts with citation number [N]
-            match_num = re.match(r'^\[(\d+)\]\s+(.+)$', line)
+            match_num = re.match(r'^(?:-\s*)?\[(S?\d+)\]\s+(.+)$', line)
             if match_num:
                 if current_entry:
                     entries.append(current_entry)
@@ -90,10 +90,10 @@ class CitationVerifier:
                 rest = match_num.group(2)
 
                 # Try to parse: Author (Year). "Title". Venue. URL
-                year_match = re.search(r'\((\d{4})\)', rest)
+                year_match = re.search(r'\b((?:19|20)\d{2})\b', rest)
                 title_match = re.search(r'"([^"]+)"', rest)
                 doi_match = re.search(r'doi\.org/(10\.\S+)', rest)
-                url_match = re.search(r'https?://[^\s\)]+', rest)
+                url_match = re.search(r'https?://[^\s>)]+', rest)
 
                 current_entry = {
                     'num': num,

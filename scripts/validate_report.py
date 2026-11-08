@@ -62,7 +62,7 @@ class ReportValidator:
     def _check_executive_summary(self) -> bool:
         """Check executive summary exists and is 200-400 words"""
         pattern = r'## Executive Summary(.*?)(?=##|\Z)'
-        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE)
+        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
         if not match:
             self.errors.append("Missing 'Executive Summary' section")
@@ -120,8 +120,8 @@ class ReportValidator:
 
     def _check_citations(self) -> bool:
         """Check citation format and presence"""
-        # Find all citation references [1], [2], etc.
-        citations = re.findall(r'\[(\d+)\]', self.content)
+        # Find all citation references [1], [2], etc., including claims-pipeline [S1] forms.
+        citations = re.findall(r'\[(S?\d+)\]', self.content)
 
         if not citations:
             self.errors.append("No citations found in report")
@@ -133,7 +133,7 @@ class ReportValidator:
             self.warnings.append(f"Only {len(unique_citations)} unique sources cited (recommended: ≥10)")
 
         # Check for consecutive citation numbers
-        citation_nums = sorted([int(c) for c in unique_citations])
+        citation_nums = sorted([int(c.lstrip('S')) for c in unique_citations])
         if citation_nums:
             max_citation = max(citation_nums)
             expected = set(range(1, max_citation + 1))
@@ -146,8 +146,8 @@ class ReportValidator:
 
     def _check_bibliography(self) -> bool:
         """Check bibliography exists, matches citations, and has no truncation placeholders"""
-        pattern = r'##\s*(?:\d+[.)]\s*)?Bibliography(.*?)(?=##|\Z)'
-        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE)
+        pattern = r'##\s*(?:\d+[.)]\s*)?Bibliography(.*?)(?=^##\s|\Z)'
+        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
         if not match:
             self.errors.append("Missing 'Bibliography' section")
@@ -172,15 +172,15 @@ class ReportValidator:
                 self.errors.append(f"   This makes the report UNUSABLE - complete bibliography required")
                 return False
 
-        # Count bibliography entries [1], [2], etc.
-        bib_entries = re.findall(r'^\[(\d+)\]', bib_section, re.MULTILINE)
+        # Count bibliography entries [1], [2], etc. and claims-pipeline '- [S1]' forms.
+        bib_entries = re.findall(r'^(?:-\s*)?\[(S?\d+)\]', bib_section, re.MULTILINE)
 
         if not bib_entries:
             self.errors.append("Bibliography has no entries")
             return False
 
         # Check citation number continuity (no gaps)
-        bib_nums = sorted([int(n) for n in bib_entries])
+        bib_nums = sorted([int(n.lstrip('S')) for n in bib_entries])
         if bib_nums:
             expected = list(range(1, bib_nums[-1] + 1))
             actual = bib_nums
@@ -189,9 +189,9 @@ class ReportValidator:
                 self.errors.append(f"Bibliography has gaps in numbering: missing {missing}")
                 return False
 
-        # Find citations in text
-        text_citations = set(re.findall(r'\[(\d+)\]', self.content))
-        bib_citations = set(bib_entries)
+        # Find citations in text, normalizing [S1] and [1] to the same identity.
+        text_citations = {c.lstrip('S') for c in re.findall(r'\[(S?\d+)\]', self.content)}
+        bib_citations = {c.lstrip('S') for c in bib_entries}
 
         # Check all citations have bibliography entries
         missing_in_bib = text_citations - bib_citations
@@ -256,14 +256,14 @@ class ReportValidator:
 
     def _check_source_count(self) -> bool:
         """Check minimum source count"""
-        pattern = r'##\s*(?:\d+[.)]\s*)?Bibliography(.*?)(?=##|\Z)'
-        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE)
+        pattern = r'##\s*(?:\d+[.)]\s*)?Bibliography(.*?)(?=^##\s|\Z)'
+        match = re.search(pattern, self.content, re.DOTALL | re.IGNORECASE | re.MULTILINE)
 
         if not match:
             return True  # Already caught in bibliography check
 
         bib_section = match.group(1)
-        bib_entries = re.findall(r'^\[(\d+)\]', bib_section, re.MULTILINE)
+        bib_entries = re.findall(r'^(?:-\s*)?\[(S?\d+)\]', bib_section, re.MULTILINE)
 
         source_count = len(set(bib_entries))
 

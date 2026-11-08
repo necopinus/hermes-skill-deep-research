@@ -59,6 +59,11 @@ perspective. Trend = recent 1-2 years.
 [claims-pipeline.md](./reference/claims-pipeline.md). It governs the claims flow;
 methodology.md provides the phase-level mechanics it builds on.
 
+Do not register the report's cross-source thesis, taxonomy, or preferred framing as a
+validated primary-source claim. Source-derived implications must remain tied to their
+evidence; synthesis belongs in report reasoning and cites underlying factual claims,
+not a self-certifying claim created to endorse the synthesis.
+
 **Delegation principle:** Phases 3-8 are delegated to subagents whenever they involve
 multi-step generation, analysis, or drafting. The main context handles only:
 - Research framing (Phase 1) and strategy (Phase 2)
@@ -126,8 +131,8 @@ run is driven from those documents and web research only fills depth:
 
 **On invocation, load relevant reference files:**
 
-1. **Phase 1-2 (scope/plan):** Load [methodology.md](./reference/methodology.md)
-2. **Phases 3-7 (claims pipeline):** Load [claims-pipeline.md](./reference/claims-pipeline.md) — source scouting, deep-read claim extraction, adversarial claim checking, claim-grounded drafting
+1. **Phase 1-2 (scope/plan):** Load [methodology.md](./reference/methodology.md). For security-incident reconstruction, novelty claims, or cross-domain attack comparisons, also load [security-incident-analysis.md](./references/security-incident-analysis.md).
+2. **Phases 3-7 (claims pipeline):** Load [claims-pipeline.md](./reference/claims-pipeline.md) — source scouting, deep-read claim extraction, adversarial claim checking, claim-grounded drafting. For parallel-batch aggregation, clause-level checking, and raw protocol-data verification, also load [claims-registry-operations.md](./references/claims-registry-operations.md).
 1. **Phase 8 (Report):** Load [report-assembly.md](./reference/report-assembly.md) for progressive generation. Section order: Methodology appendix and Report Metadata BEFORE '## Bibliography' — `claims_convert.py` replaces everything from the Bibliography heading to EOF (only a '### Consulted' subsection survives), so the template's bibliography-first order silently deletes the appendix at conversion.
 4. **HTML/PDF output:** Load [html-generation.md](./reference/html-generation.md)
 5. **Quality checks:** Load [quality-gates.md](./reference/quality-gates.md)
@@ -143,12 +148,11 @@ run is driven from those documents and web research only fills depth:
   slide text + per-slide-mapped speaker notes; docx: paragraphs; pdf: `pdftotext
   -layout`); `--images` adds per-slide image copies, a full media dump, and a manifest
 - `python scripts/validate_report.py --report [path]`
-- `python scripts/verify_citations.py --report [path]` — run BEFORE `claims_convert`
-  or on a normalized view: it cannot parse the post-conversion `- [Sn]` list format
-  (`resolve_citations.py` is the post-conversion gate)
+- `python scripts/verify_citations.py --report [path]` — checks bibliography URLs and metadata, including post-conversion `- [Sn]` entries; `resolve_citations.py` remains the substantive body↔registry↔bibliography identity gate
 - `python scripts/verify_pdf_text.py --pdf [path]` (mandatory when a PDF is generated)
 - `python scripts/claims_check.py --claims [claims.jsonl]` — structural validation of the claims register (mandatory after R2/R3)
-- `python scripts/claims_convert.py --report [draft.md] --claims [claims.jsonl] --sources [sources.jsonl]` — mechanical `[Cn]` → `[Sn]` conversion + inline Bibliography generation (Phase 8, after the pre-conversion commit)
+- `python scripts/claims_convert.py --report [draft.md] --claims [claims.jsonl] --sources [sources.jsonl]` — mechanical `[Cn]` → `[Sn]` conversion + inline Bibliography generation (Phase 8, after the pre-conversion commit); then collapse repeated adjacent citations for the same source (`[S1][S1]` → `[S1]`) without changing multi-source groups, and rerun `resolve_citations.py`
+- For Pandoc→HTML→PDF, use `pagetitle` for the HTML document title when the Markdown already has an H1; supplying `title` also emits a visible metadata title and duplicates the report heading. Inspect both a table page and the final bibliography page, not just the text layer.
 - `python scripts/resolve_citations.py --report [report.md]` — body↔registry↔inline-bibliography cross-check (after conversion)
 - `python scripts/md_to_html.py [markdown_path]`
 - `python scripts/citation_manager.py` — source registration and citation numbering
@@ -182,10 +186,12 @@ run is driven from those documents and web research only fills depth:
 - `artifacts/` — grimoire-raw-ready markdown extracts for EVERY source in
   `sources.jsonl` (not just "key" ones): every claim's evidence quote must be
   verifiable against on-disk text, not live fetches alone. Before delivery, sweep all
-  claims' quotes against the extract corpus and backfill any missing extract
-  (`web_extract` silently caps at 5 URLs per call and returns only the first batch —
-  batch accordingly, and key results by position: returned URLs are post-redirect and
-  won't match the requested strings)
+  claims' quotes against the extract corpus and backfill any missing extract; normalize
+  whitespace and typographic variants such as curly apostrophes and dashes before
+  declaring a quote missing, because extractors may alter punctuation without changing
+  the evidence. `web_extract` silently caps at 5 URLs per call and returns only the
+  first batch — batch accordingly, and key results by position: returned URLs are
+  post-redirect and won't match the requested strings). Recompute every declared `sha256` over the actual Markdown body after aggregation and repair mismatches; delegated scouts may hash a raw capture or a different serialization instead of the artifact they wrote)
 - `sources.jsonl` — stable source registry with canonical IDs and provenance tiers
 - `claims.jsonl` — the source-derived claims register: verbatim evidence quotes and
   lifecycle states (candidate/validated/discarded/superseded); the ONLY source of
@@ -248,6 +254,7 @@ markdownlint-cli2 --no-globs --config ~/workspace/research/.markdownlint-cli2.js
   intentionally edit, then re-run scoped to your own files with `--no-globs`.
 - The pre-commit hook (`.githooks/pre-commit`) also runs this check but with
   `|| true` — it reports without blocking. The skill's lint step is the real gate.
+- **Citation markers and MD052:** `[Cn]` before conversion and `[Sn]` afterward look like undefined reference links to markdownlint. Put `<!-- markdownlint-disable MD052 -->` after the report's frontmatter rather than weakening the vault config, and keep the mechanical citation resolvers as the substantive gate. An empty `## Bibliography` is expected in the claim-annotated draft because `claims_convert.py` generates it; do not let reviewers count that expected pre-conversion state as a finding.
 - **Piecemeal policy (updated 2026-08-27):** fix everything the linter surfaces in
   every file you create or touch — new findings and pre-existing ones alike. Do NOT
   reformat untouched files en masse, and do NOT run whole-vault fixes. If a finding
@@ -261,8 +268,15 @@ then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism
 
 **Quality standards:**
 - 10+ sources, 3+ per major claim (cluster-independent, not just count)
+- Normalize parallel claim batches before R3: map temporary IDs to sequential `Cn`, deduplicate sources by canonical locator, enforce the claim schema and allowed enums, reset checker-generated records to `candidate`, then run `claims_check.py`; parallel scouts often preserve convenient local fields that do not form a valid shared registry
 - All factual claims cited immediately [N] with evidence backing in `evidence.jsonl`
 - Claim-support verification mandatory: no unsupported factual claims pass delivery
+- Verify every red-team or persona finding against the current report and source artifact before applying it; independent reviewers can make false path, metadata, or attribution assertions too
+- Map every mechanism clause to its incident before drafting comparisons; a shared wallet, vendor, or interface does not license transferring technical details between cases
+- Treat a victim's architectural explanation as a causal hypothesis: test it against the same system's observed behavior and ordinary process alternatives, because a verbatim quote proves what the victim said, not what caused the delay or failure
+- For protocol disputes, treat gas as corroboration only after complete intrinsic-cost and refund accounting; unexplained residue invalidates it as standalone proof
+- Write "the victim has not disclosed" or "the source set does not establish" rather than "nothing published" until secondary reconstructions have also been checked; first-party silence and absence of analysis are different claims
+- For novelty and trend claims, document the antecedent selection frame, include earlier canonical cases and the closest major-magnitude comparator when available, and bound conclusions to that sample; a hand-picked recent or small comparison set inflates novelty and impact
 - No placeholders, no fabricated citations
 - Prose-first (>=80%), bullets sparingly
 - Slop-free prose: all report prose follows the `no-ai-slop` skill's editing rules
