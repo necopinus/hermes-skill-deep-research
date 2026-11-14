@@ -13,6 +13,8 @@ context management.
 
 **Before beginning a run:** `cd ~/workspace/research && git pull` to ensure the vault is up-to-date.
 
+**Skill maintenance (REQUIRED):** Whenever you change any file in this skill repository—including `SKILL.md`, references, templates, scripts, or tests—run the relevant checks, commit the change, and push it to `origin main` before finishing the task. Review the staged diff and verify that the remote branch matches the new local commit; never leave a skill improvement only in the local working tree. Preserve unrelated pre-existing dirty work unless the user explicitly asks to include it.
+
 **Autonomy Principle:** Operate independently. Infer assumptions from context. Only stop
 for critical errors or incomprehensible queries. Surface high-materiality assumptions
 explicitly in the Introduction and Methodology rather than silently defaulting.
@@ -69,6 +71,10 @@ multi-step generation, analysis, or drafting. The main context handles only:
 - Research framing (Phase 1) and strategy (Phase 2)
 - Final validation and delivery decisions
 - Cross-phase coordination and gap-filling when subagents return incomplete work
+
+When parallel section writers work on one report, assign separate files under `draft_sections/`
+and concatenate them in outline order before review. Concurrent appends to the report can reorder
+sections or overwrite one another, and red-team reviewers need one stable report path.
 
 For multi-report projects delivered sequentially as autonomous builder processes
 (`hermes -z`, one per report, orchestrator verifies and commits between builds), see
@@ -152,7 +158,8 @@ run is driven from those documents and web research only fills depth:
 - `python scripts/verify_pdf_text.py --pdf [path]` (mandatory when a PDF is generated)
 - `python scripts/claims_check.py --claims [claims.jsonl]` — structural validation of the claims register (mandatory after R2/R3)
 - `python scripts/claims_convert.py --report [draft.md] --claims [claims.jsonl] --sources [sources.jsonl]` — mechanical `[Cn]` → `[Sn]` conversion + inline Bibliography generation (Phase 8, after the pre-conversion commit); then collapse repeated adjacent citations for the same source (`[S1][S1]` → `[S1]`) without changing multi-source groups, and rerun `resolve_citations.py`
-- For Pandoc→HTML→PDF, use `pagetitle` for the HTML document title when the Markdown already has an H1; supplying `title` also emits a visible metadata title and duplicates the report heading. Inspect both a table page and the final bibliography page, not just the text layer.
+- For Pandoc→HTML→PDF, use `pagetitle` for the HTML document title when the Markdown already has an H1; supplying `title` also emits a visible metadata title and duplicates the report heading. Inspect both a table page and the final bibliography page, not just the text layer. For dense comparison tables, use `table-layout: fixed` and `overflow-wrap: anywhere` on cells so adjacent citation markers and long URLs wrap within their columns
+- Run `verify_html.py` only for the McKinsey HTML structure it checks, not generic Pandoc standalone HTML used solely as a WeasyPrint intermediate; verify the PDF instead and remove the intermediate when HTML is not a deliverable
 - `python scripts/resolve_citations.py --report [report.md]` — body↔registry↔inline-bibliography cross-check (after conversion)
 - `python scripts/md_to_html.py [markdown_path]`
 - `python scripts/citation_manager.py` — source registration and citation numbering
@@ -189,9 +196,16 @@ run is driven from those documents and web research only fills depth:
   claims' quotes against the extract corpus and backfill any missing extract; normalize
   whitespace and typographic variants such as curly apostrophes and dashes before
   declaring a quote missing, because extractors may alter punctuation without changing
-  the evidence. `web_extract` silently caps at 5 URLs per call and returns only the
+  the evidence. For scanned PDFs, also compare a lowercase alphanumeric-only fingerprint
+  of quote and artifact: line-wrap hyphens, ligatures, and OCR-collapsed spaces otherwise
+  create false mismatches. Split evidence quotations containing explicit ellipses into their
+  component spans and require every span to match; a literal whole-string check cannot handle
+  omitted text. Use fingerprints only for verification; never rewrite the source extract or
+  evidence quote to make them match. `web_extract` silently caps at 5 URLs per call and returns only the
   first batch — batch accordingly, and key results by position: returned URLs are
   post-redirect and won't match the requested strings). Recompute every declared `sha256` over the actual Markdown body after aggregation and repair mismatches; delegated scouts may hash a raw capture or a different serialization instead of the artifact they wrote)
+- Treat artifact packaging as a set operation: build one canonical FULL-SOURCE extract per registry `source_id`, compare the source-ID set with the packaged set, then verify quotes and hashes before pruning scout captures. Claim-oriented excerpts are evidence aids, not canonical source archives; prefer the complete fetched document when both exist. Keep packaging idempotent by retaining or reusing canonical artifacts when raw inputs are absent; never regenerate a complete artifact index from a pruned tree and replace it with a partial one
+- Rerun artifact packaging, evidence-quote verification, and old→new ID-map reconciliation after EVERY correction or delta claim, including checker-generated replacements. Report only the counts in the regenerated files, and point each replaced temporary ID at the replacement rather than the discarded claim; stale maps and pre-delta verification counts otherwise make a checked correction look unverified
 - `sources.jsonl` — stable source registry with canonical IDs and provenance tiers
 - `claims.jsonl` — the source-derived claims register: verbatim evidence quotes and
   lifecycle states (candidate/validated/discarded/superseded); the ONLY source of
@@ -222,6 +236,8 @@ run is driven from those documents and web research only fills depth:
   missed repeatedly; generate it as part of Phase 8 packaging, every run.)
 
 **Markdown line wrapping (NON-NEGOTIABLE):** NEVER use hard line wrapping in authored Markdown files. Write each paragraph as one logical line and each list item as one logical line, regardless of length; let the reader or renderer soft-wrap the text. Hard-wrapped source lines interact poorly with e-readers. This applies to final reports, claim-annotated drafts, bibliographies, appendices, errata, and every other authored Markdown deliverable. Preserve structural newlines for headings, separate paragraphs, list items, table rows, YAML frontmatter, code fences, and deliberate hard breaks—do not collapse those structures. Review generated files before delivery and unwrap any prose or list content produced by drafting subagents.
+
+When retrofitting an existing report, first identify the requested final deliverables and leave claim-annotated drafts, source extracts, and other untouched files alone. Use a dry-run-capable mechanical unwrapping pass rather than manually joining thousands of lines; join only adjacent prose or list-continuation lines, never structural Markdown lines. Assert `original.split() == revised.split()` for every file so the rewrite cannot silently alter report content, rerun the pass as an idempotence check, inspect the resulting diff, and then run the required scoped lint. Use a Markdown parser or targeted edits for complex nesting, blockquotes, indented code, or deliberate hard breaks—line-based rewriting can otherwise destroy meaningful structure.
 
 **Markdown linting (REQUIRED before commit):** the `~/workspace/research` vault is linted with
 `markdownlint-cli2` and the repo config `.markdownlint-cli2.jsonc`. After all output
@@ -270,15 +286,28 @@ then `git push`. (The `ob sync` flow is deprecated — git is the sync mechanism
 
 **Quality standards:**
 - 10+ sources, 3+ per major claim (cluster-independent, not just count)
-- Normalize parallel claim batches before R3: map temporary IDs to sequential `Cn`, deduplicate sources by canonical locator, enforce the claim schema and allowed enums, reset checker-generated records to `candidate`, then run `claims_check.py`; parallel scouts often preserve convenient local fields that do not form a valid shared registry
+- Normalize parallel claim batches before R3 with a saved aggregation script under `analysis/scripts/`: map temporary IDs to sequential `Cn` and retain an old→new ID map for checker range assignments, normalize common aliases such as `artifact`/`artifact_path` and `verbatim_evidence_quote`/`evidence_quote`, deduplicate sources by canonical locator, enforce the claim schema and allowed enums, reset checker-generated records to `candidate`, then run `claims_check.py`; hand-merging heterogeneous scout JSONL is error-prone and loses the provenance needed for independent checks. Canonicalize DOIs case-insensitively and normalize URL scheme/host casing, trailing slashes, and fragments BEFORE hashing source IDs; otherwise parallel scouts register the same work under different IDs and split its claims and artifacts
+- Compare the set of `source_id`s in `sources.jsonl` against the set covered by the artifact index, not the number of artifact files or index rows; duplicate artifacts across batches can make coverage look complete while sources with different field names have no registered extract
+- During the outline coverage check, compare registered `source_id`s with those used by claims; record an exclusion reason for retrieved-but-unused sources or narrow the report's claimed review scope, so the prose does not imply depth the evidence trail lacks
+- After every delta retrieval wave, mechanically reconcile source, claim, lifecycle, and citation counts across the body, methodology, metadata, and run manifest; search both digits and spelled-out numbers because prose counts survive replacements aimed only at numeric metadata
+- Keep one canonical packaged Markdown extract per `source_id` and remove or quarantine duplicate scout captures before final lint; duplicate raw extracts multiply lint, hashing, and review work without adding provenance
+- Validate the merged registry after every R3 wave before replacing `claims.jsonl`: merge verdict-only checker output onto the original claim by `claim_id`, normalize `status`/`lifecycle` and checker verdict aliases to the schema enums, and run `claims_check.py` on a staging file; otherwise a checker can silently strip evidence fields or invalidate the whole register. Accept corrected-claim records in either flat or wrapped form, resolve the parent from `supersedes`, `parent_claim_id`, or the checker's `corrected_claim_id`, and project only schema-approved keys before merging; heterogeneous checker wrappers otherwise break parent linkage or leak non-schema fields into the registry. Preserve the parent's check reason and replacement link, and keep replacement statements substantive — editorial labels such as "corrected Cn" belong in the check metadata, not in the factual claim text
 - All factual claims cited immediately [N] with evidence backing in `evidence.jsonl`
 - Claim-support verification mandatory: no unsupported factual claims pass delivery
-- Verify every red-team or persona finding against the current report and source artifact before applying it; independent reviewers can make false path, metadata, or attribution assertions too
+- Verify every red-team or persona finding against the current report and source artifact before applying it; independent reviewers can make false path, metadata, attribution, table-column, or arithmetic assertions too
+- During R3 and R5, read the surrounding text and relevant tables, not just the claim's evidence quote. Check omitted columns and rival explanations before validating a claim, require the final interpretive clause to follow as well as the quoted number, and distinguish composition shares from causal explanations. Do not rank one hypothesis above another unless the source does so, and do not generalize a narrow measured channel into a verdict on every variable in the model
+- Assemble the latest draft at the review path before dispatching red-team agents and run the citation/lifecycle check on that exact file; if it changes during review, run a targeted re-audit so reviewers never certify stale prose, and state explicitly which pre-conversion conditions are expected. Also assert the expected heading sequence and Executive Summary word count after mechanical concatenation; splitting and stripping section text can fuse a heading to its first sentence even when every citation resolves
+- Audit cross-source and cross-domain analogies dimension by dimension: name the shared mechanism AND the point where the analogy reverses, especially production site, unit, motive, and direction of causation. Do not say one process "recapitulates" another when a defining feature runs in the opposite direction; formulate the narrower resemblance instead
 - Map every mechanism clause to its incident before drafting comparisons; a shared wallet, vendor, or interface does not license transferring technical details between cases
 - Treat a victim's architectural explanation as a causal hypothesis: test it against the same system's observed behavior and ordinary process alternatives, because a verbatim quote proves what the victim said, not what caused the delay or failure
 - For protocol disputes, treat gas as corroboration only after complete intrinsic-cost and refund accounting; unexplained residue invalidates it as standalone proof
 - Write "the victim has not disclosed" or "the source set does not establish" rather than "nothing published" until secondary reconstructions have also been checked; first-party silence and absence of analysis are different claims
 - For novelty and trend claims, document the antecedent selection frame, include earlier canonical cases and the closest major-magnitude comparator when available, and bound conclusions to that sample; a hand-picked recent or small comparison set inflates novelty and impact
+- For software product comparisons, decompose each feature into capture, local persistence, display, sync, export, and later reconciliation: a feed shown beside an entry may never enter the database or export, and an event-triggered integration may preserve stale state after the source changes
+- Test reconciliation with move-out, deletion, and late-arrival cases, not only edits within the same bucket or date: a change feed that sees an item's new location may provide no evidence that the old location needs re-rendering
+- Verify export scope separately from export format — readable HTML/DOCX/PDF output does not establish that imported context, metadata, or attachments are included; use official export documentation, maintainer answers, or a hands-on export test, and label unverified scope rather than inferring it from the UI
+- Treat feature requests and user comments as demand or reported experience, not evidence of implementation; prefer current product docs and maintainer statements for capability claims
+- Distinguish announced, shipped, and currently available capabilities; a future-tense maintainer announcement is not a shipped feature, so corroborate it against the current changelog, help pages, or store release notes before using present tense
 - No placeholders, no fabricated citations
 - Prose-first (>=80%), bullets sparingly
 - Slop-free prose: all report prose follows the `no-ai-slop` skill's editing rules

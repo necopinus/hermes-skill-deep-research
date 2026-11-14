@@ -60,7 +60,8 @@ LONG_WORD_WHITELIST = {
 COMPOUND_WHITELIST = {
     # everyday compounds
     "walkthrough", "walkthroughs", "background", "backgrounds", "reachable",
-    "paperwork", "whichever",
+    "paperwork", "whichever", "workaround", "workarounds", "housework", "protoindustrialization",
+    "highlight", "highlights",
     "whitespace", "acceptable", "reasonable", "viewpoint", "learnable",
     "backoffice",
     "reportable", "whiteboard", "whiteboards", "marketable",
