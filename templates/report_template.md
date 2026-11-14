@@ -59,6 +59,7 @@ CITATION TRACKING (CRITICAL):
 <!-- - CLARITY: Use exact numbers, specific data, precise technical terms -->
 <!-- - DIRECTNESS: State findings without embellishment -->
 <!-- - HIGH SIGNAL-TO-NOISE: Respect reader's time, dense information -->
+<!-- - NO HARD WRAPPING: One logical line per paragraph and per list item; soft-wrap only in the renderer -->
 <!-- Examples: "reduced mortality 23%" not "significantly improved outcomes" -->
 <!-- Examples: "5 RCTs (n=1,847)" not "several studies suggest" -->
 

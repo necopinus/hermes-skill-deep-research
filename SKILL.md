@@ -221,6 +221,8 @@ run is driven from those documents and web research only fills depth:
   NEVER auto-opened. Do not treat PDF as a per-surface afterthought — it has been
   missed repeatedly; generate it as part of Phase 8 packaging, every run.)
 
+**Markdown line wrapping (NON-NEGOTIABLE):** NEVER use hard line wrapping in authored Markdown files. Write each paragraph as one logical line and each list item as one logical line, regardless of length; let the reader or renderer soft-wrap the text. Hard-wrapped source lines interact poorly with e-readers. This applies to final reports, claim-annotated drafts, bibliographies, appendices, errata, and every other authored Markdown deliverable. Preserve structural newlines for headings, separate paragraphs, list items, table rows, YAML frontmatter, code fences, and deliberate hard breaks—do not collapse those structures. Review generated files before delivery and unwrap any prose or list content produced by drafting subagents.
+
 **Markdown linting (REQUIRED before commit):** the `~/workspace/research` vault is linted with
 `markdownlint-cli2` and the repo config `.markdownlint-cli2.jsonc`. After all output
 files are written, lint every `.md` file created or modified this run and resolve ALL
