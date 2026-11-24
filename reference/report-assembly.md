@@ -172,6 +172,49 @@ All files use the same base name:
 
 ---
 
+## Math, diagrams, and the Obsidian-first PDF path
+
+When a report needs notation or diagrams, prefer the vault's native formats before
+reaching for LaTeX or external tools:
+
+1. **Math:** Obsidian-compatible LaTeX — inline `$...$`, block `$$...$$` (the
+   `aligned` grouping is allowed inside a block; do not use `align`/`align*`
+   environments). Every constant in a formula must trace to a cited claim in the
+   surrounding prose, and drafting agents must be told which math the section needs.
+2. **Diagrams:** Mermaid fenced blocks (`sequenceDiagram` for timelines and message
+   flows, `flowchart` for state machines). Keep labels plain text (no `$`, avoid
+   `;`/`#`), and have a checker verify the diagram's constants against the cited
+   claims — a diagram is a factual assertion rendered as pixels.
+3. **PDF build:** Pandoc cannot render Mermaid. Pre-render each block with an HTTP
+   call to kroki.io (`curl --data-binary @diagram.mmd https://kroki.io/mermaid/png`,
+   assert HTTP 200; `npx @mermaid-js/mermaid-cli` works but is heavy), store the PNG
+   under `analysis/build/`, and substitute image includes in a **build copy only** —
+   never in the vault Markdown. Then `pandoc --pdf-engine=xelatex` with DejaVu fonts
+   (`-V mainfont="DejaVu Serif"` etc.) so unicode arrows and dashes survive.
+4. **`verify_pdf_text.py` false positives:** its fused-word heuristic can flag a
+   legitimate English word (e.g. "pointless" = "point"+"less"). The gate must pass,
+   so reword the prose and rebuild rather than waiving the gate.
+
+Two counting rules for self-reported metadata (both burned a report once):
+
+- **Citation count:** extract ALL claim ids inside EACH bracket group
+  (`[C1][C2]` and `[C3, C4]` each contribute every id) — a regex like `\[C(\d+)`
+  silently undercounts multi-citation groups.
+- **Word count:** strip fenced code blocks, `$$...$$` and `$...$` math, and
+  `[Cn]` citation markers BEFORE splitting on whitespace, and say what the count
+  includes ("prose and tables; code, math, and citations excluded").
+
+**Post-conversion edits require the full chain re-run:** any edit to a
+`draft_sections/` file after `claims_convert.py` means re-running
+assemble -> claims_convert -> resolve_citations -> lint -> PDF build ->
+verify_pdf_text, because the assembler writes the claim-annotated draft over the
+converted file.
+
+**Artifact lint disables change the body hash.** Inserting the per-file
+`<!-- markdownlint-disable MDxxx -->` line after an artifact's frontmatter puts the
+comment inside the sha256-covered body — recompute the declared hash and re-run the
+evidence-quote substring sweep afterwards.
+
 ## Word Count Per Section
 
 **CRITICAL:** No single MCP write should exceed ~2,000 words.

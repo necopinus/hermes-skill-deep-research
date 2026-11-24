@@ -80,6 +80,15 @@ Iterate to fixpoint. Checker-generated claims are never exempt from checking.
 Aggregator-tier sources cannot validate a load-bearing claim: the checker must
 locate the primary or discard.
 
+**Locator-only fixpoint escape.** When a checker's correction changes ONLY an
+optional field (typically `quote_locator`) while the statement and evidence quote
+have already been confirmed verbatim against the live source by two independent
+checkers, stop dispatching further checker cycles on that field: close the
+correction mechanically in the main context (verify quote and locator facts against
+the artifact/live copy, mark the record validated, and document the closure and its
+precedent in the `check` record). Two locator ping-pongs on the same claim is the
+signal this rule exists for; a third agent round-trip adds no verification value.
+
 ## Coverage check (main context)
 
 Before any drafting: map validated claims to outline sections.
